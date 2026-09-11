@@ -168,6 +168,9 @@ class Servidor:
             nombres = sorted(
                 nombre for nombre, eq in self.estado.equipos.items() if eq.conectado
             )
+        elif isinstance(destinos, str):
+            nombre = destinos.strip().lower()
+            nombres = [nombre] if nombre else []
         else:
             nombres = [d.strip().lower() for d in destinos if d.strip()]
 
