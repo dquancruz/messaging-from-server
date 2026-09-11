@@ -2,7 +2,8 @@
 # Instala el agente de Ciber Mensajería en macOS.
 #
 # Uso:
-#   sudo ./instalar-agente.sh --token EL_TOKEN_DEL_SERVIDOR
+#   sudo ./instalar-agente.sh
+#   sudo ./instalar-agente.sh --token OTRO_TOKEN
 
 set -euo pipefail
 
@@ -43,15 +44,20 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-if [ -z "$TOKEN" ]; then
-    error "falta --token"
-fi
-
 if [ "$(id -u)" -ne 0 ]; then
-    error "ejecute como root: sudo $0 --token ..."
+    error "ejecute como root: sudo $0"
 fi
 
 RAIZ_PROYECTO="$(cd "$(dirname "$0")/../.." && pwd)"
+
+if [ -z "$TOKEN" ]; then
+    CONFIG_AGENTE_ORIGEN="$RAIZ_PROYECTO/agente/config.json"
+    if [ ! -f "$CONFIG_AGENTE_ORIGEN" ]; then
+        error "falta --token y no se encontró $CONFIG_AGENTE_ORIGEN"
+    fi
+    TOKEN=$(python3 -c "import json; print(json.load(open('$CONFIG_AGENTE_ORIGEN'))['token'])")
+    log "Usando token del repositorio: $TOKEN"
+fi
 DESTINO="/Library/Application Support/CiberMensajeria"
 CONFIG="$DESTINO/agente.json"
 PLANTILLA="$(dirname "$0")/lab.ciber.agente.plist"

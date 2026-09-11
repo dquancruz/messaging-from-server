@@ -2,10 +2,11 @@
 # Instala el agente de Ciber Mensajería en Ubuntu/Debian.
 #
 # Uso (como root):
-#   sudo ./instalar-agente.sh --token EL_TOKEN_DEL_SERVIDOR
+#   sudo ./instalar-agente.sh
+#   sudo ./instalar-agente.sh --token OTRO_TOKEN
 #
 # Opciones:
-#   --token TOKEN     Token compartido con el servidor (obligatorio)
+#   --token TOKEN     Token compartido con el servidor (por defecto: agente/config.json)
 #   --servidor HOST   Nombre del servidor (por defecto: dc01.lab.lan)
 #   --respaldo IP     IP de respaldo (por defecto: 192.168.1.10)
 #   --modo grafico    Forzar instalación con ventanas (autostart)
@@ -59,15 +60,20 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-if [ -z "$TOKEN" ]; then
-    error "falta --token (cópielo del instalador del servidor en DC01)"
-fi
-
 if [ "$(id -u)" -ne 0 ]; then
-    error "ejecute este script como root: sudo $0 --token ..."
+    error "ejecute este script como root: sudo $0"
 fi
 
 RAIZ_PROYECTO="$(cd "$(dirname "$0")/../.." && pwd)"
+
+if [ -z "$TOKEN" ]; then
+    CONFIG_AGENTE_ORIGEN="$RAIZ_PROYECTO/agente/config.json"
+    if [ ! -f "$CONFIG_AGENTE_ORIGEN" ]; then
+        error "falta --token y no se encontró $CONFIG_AGENTE_ORIGEN"
+    fi
+    TOKEN=$(python3 -c "import json; print(json.load(open('$CONFIG_AGENTE_ORIGEN'))['token'])")
+    log "Usando token del repositorio: $TOKEN"
+fi
 DESTINO="/opt/ciber-mensajeria"
 CONFIG_DIR="/etc/ciber-mensajeria"
 CONFIG="$CONFIG_DIR/agente.json"

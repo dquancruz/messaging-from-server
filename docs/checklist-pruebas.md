@@ -145,7 +145,7 @@ en DC01, no el agente.
 | Síntoma | Qué revisar |
 |---|---|
 | El agente se conecta y se desconecta al instante | El log del servidor muestra `rechazado` / token incorrecto. El `token` del agente debe coincidir **exactamente** con `C:\CiberMensajeria\config.json`. |
-| Reinstalaste el servidor y generó token nuevo | Vuelve a instalar o reconfigurar cada agente con el token nuevo. |
+| Token distinto entre servidor y agente | Deben coincidir con `lab-lan-ciber-mensajeria` (o el valor en `servidor/config.json` y `agente/config.json`). |
 
 ### El equipo no aparece en el panel
 
