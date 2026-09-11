@@ -1,6 +1,8 @@
 {
   "host_agentes": "0.0.0.0",
   "puerto_agentes": 5050,
+  "host_admin": "127.0.0.1",
+  "puerto_admin": 5051,
   "host_panel": "127.0.0.1",
   "puerto_panel": 8080,
   "token": "cambia-este-token",

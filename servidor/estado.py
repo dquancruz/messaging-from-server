@@ -11,10 +11,13 @@ import asyncio
 import concurrent.futures
 import json
 import logging
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from comun import protocolo
 
 registrador = logging.getLogger("servidor.estado")
 
@@ -207,3 +210,61 @@ class EstadoServidor:
 
     def obtener_equipos(self) -> list[dict[str, Any]]:
         return [e.a_dict() for e in sorted(self.equipos.values(), key=lambda e: e.nombre)]
+
+    async def enviar_mensaje(
+        self,
+        *,
+        destinos: list[str] | str,
+        titulo: str,
+        texto: str,
+        nivel: str = "info",
+        pedir_visto: bool = True,
+        id_mensaje: str | None = None,
+    ) -> int:
+        """Manda un aviso a uno o varios equipos conectados.
+
+        ``destinos`` puede ser una lista de nombres, un nombre suelto o la
+        cadena ``"todos"``. Devuelve cuántas conexiones recibieron el
+        mensaje.
+        """
+        if nivel not in protocolo.NIVELES_VALIDOS:
+            raise ValueError(f"nivel inválido: {nivel!r}")
+
+        if isinstance(destinos, str):
+            nombres = list(self.equipos.keys()) if destinos == "todos" else [destinos]
+        else:
+            nombres = list(destinos)
+
+        mensaje = {
+            "tipo": "mensaje",
+            "id": id_mensaje or str(uuid.uuid4()),
+            "titulo": titulo,
+            "texto": texto,
+            "nivel": nivel,
+            "pedir_visto": pedir_visto,
+        }
+        datos = protocolo.codificar(mensaje, protocolo.TIPOS_SERVIDOR_AGENTE)
+        enviados = 0
+
+        for nombre in nombres:
+            equipo = self.equipos.get(nombre.strip().lower())
+            if equipo is None:
+                continue
+            for conexion in list(equipo.conexiones.values()):
+                try:
+                    conexion.escritor.write(datos)
+                    await conexion.escritor.drain()
+                    enviados += 1
+                except (ConnectionError, OSError) as exc:
+                    registrador.debug(
+                        "no se pudo enviar mensaje a %s: %s", nombre, exc
+                    )
+
+        self.registrar_evento(
+            "mensaje_enviado",
+            destinos=nombres,
+            id_mensaje=mensaje["id"],
+            nivel=nivel,
+            conexiones=enviados,
+        )
+        return enviados

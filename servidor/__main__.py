@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from comun import protocolo
+from servidor.admin import ServidorAdmin
 from servidor.estado import EstadoServidor
 from servidor.servidor import Servidor
 
@@ -61,9 +62,22 @@ async def ejecutar(config: dict, directorio_datos: Path) -> None:
         puerto=config.get("puerto_agentes", protocolo.PUERTO_AGENTES_POR_DEFECTO),
     )
     servidor_asyncio = await servidor.iniciar()
+
+    admin: ServidorAdmin | None = None
+    admin_asyncio = None
+    if config.get("puerto_admin"):
+        admin = ServidorAdmin(
+            estado=estado,
+            host=config.get("host_admin", "127.0.0.1"),
+            puerto=int(config["puerto_admin"]),
+        )
+        admin_asyncio = await admin.iniciar()
+
     try:
         await servidor_asyncio.serve_forever()
     finally:
+        if admin is not None:
+            await admin.detener()
         await servidor.detener()
 
 
