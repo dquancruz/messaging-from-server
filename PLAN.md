@@ -10,6 +10,7 @@
 - [x] Fase 5 — Instaladores por sistema operativo
 - [x] Fase 6 — Pruebas en la red real
 - [x] Fase 7 — Extras (opcionales)
+- [ ] Fase 8 — Chat 1:1 entre clientes
 
 ---
 
@@ -59,8 +60,10 @@ ciber-mensajeria/
 │   ├── __main__.py
 │   ├── servidor.py           # asyncio: conexiones de agentes
 │   ├── estado.py             # equipos, sesiones, temporizadores, historial
+│   ├── chat.py               # chat 1:1, persistencia y reenvío (Fase 8)
 │   ├── panel_http.py         # API + archivos estáticos del panel
 │   ├── panel/                # index.html, app.js, estilo.css
+│   ├── panel/moderacion/     # vista de lectura del chat (Fase 8, login aparte)
 │   └── config.json
 ├── agente/
 │   ├── __main__.py
@@ -91,23 +94,31 @@ ciber-mensajeria/
 
 Agente → servidor:
 
-| tipo | campos |
-|---|---|
-| `hola` | `token`, `equipo` (hostname en minúsculas), `so` (`windows`/`linux`/`macos`), `version_so`, `usuario`, `version_agente` |
-| `visto` | `id` del mensaje que el usuario cerró con "Entendido" |
-| `ping` | — |
+| tipo | campos | notas |
+|---|---|---|
+| `hola` | `token`, `equipo` (hostname en minúsculas), `so` (`windows`/`linux`/`macos`), `version_so`, `usuario`, `version_agente` | Primer mensaje obligatorio. |
+| `visto` | `id` | El usuario cerró un `mensaje` con "Entendido". |
+| `ping` | — | Latido, cada 15 s. |
+| `chat_enviar` | `destino`, `texto` | Fase 8. Mensaje 1:1 a otro equipo conectado. |
+| `chat_historial` | `con`, `ultimos` (opcional, p. ej. 50) | Fase 8. Pide el historial con un interlocutor. |
 
 Servidor → agente:
 
-| tipo | campos |
-|---|---|
-| `bienvenido` | estado actual: `sesion` (segundos restantes o `null`), `bloqueado` (bool) |
-| `rechazado` | `motivo` (token incorrecto, versión incompatible). El servidor cierra la conexión. |
-| `mensaje` | `id`, `titulo`, `texto`, `nivel` (`info`/`aviso`/`critico`), `pedir_visto` (bool) |
-| `sesion` | `restante` (segundos) o `null` para quitar el contador |
-| `bloquear` | `texto` |
-| `desbloquear` | — |
-| `pong` | — |
+| tipo | campos | notas |
+|---|---|---|
+| `bienvenido` | `sesion` (segundos restantes o `null`), `bloqueado` (bool) | Respuesta a un `hola` aceptado. |
+| `rechazado` | `motivo` | Token incorrecto, etc. El servidor cierra la conexión. |
+| `mensaje` | `id`, `titulo`, `texto`, `nivel` (`info`/`aviso`/`critico`), `pedir_visto` (bool) | Aviso desde caja. |
+| `sesion` | `restante` (segundos) o `null` | Fase 4. |
+| `bloquear` | `texto` | Fase 4. |
+| `desbloquear` | — | Fase 4. |
+| `pong` | — | Respuesta a `ping`. |
+| `chat_estado` | `habilitado` (bool) | Fase 8. Al conectar y cuando caja cambia el interruptor. |
+| `chat_recibido` | `id`, `de`, `de_usuario`, `texto`, `cuando` | Fase 8. Mensaje entrante de otro cliente. |
+| `chat_enviado` | `id`, `para`, `cuando` | Fase 8. Confirmación de que el servidor guardó y reenvió. |
+| `chat_rechazado` | `motivo` | Fase 8. Chat deshabilitado, destino inexistente o desconectado, etc. |
+| `chat_historial_respuesta` | `con`, `mensajes` (lista) | Fase 8. Respuesta a `chat_historial`. |
+| `chat_lista` | `equipos` (lista de `{nombre, usuario, conectado}`) | Fase 8. Equipos disponibles para chatear (sin incluir al propio). |
 
 Un mismo equipo puede tener varias conexiones (una por usuario con sesión abierta). Los
 mensajes a un equipo se mandan a todas sus conexiones. Documenta el protocolo en
@@ -287,3 +298,123 @@ Generar `docs/guion-demo.md`: guion de 5 minutos para la presentación.
   compilarlo en cada SO).
 - **TLS** en la conexión agente-servidor con un certificado propio.
 - Exportar el historial a CSV desde el panel.
+
+### Fase 8 — Chat 1:1 entre clientes
+
+Los usuarios pueden mandarse mensajes de texto entre dos equipos conectados. El servidor
+guarda el historial y lo reenvía en tiempo real. **Caja solo puede activar o desactivar el
+chat; no ve el contenido.** Para leer conversaciones hace falta entrar con una cuenta de
+moderación aparte (usuario y contraseña fijos en `config.json`).
+
+#### Modelo y reglas
+
+- Solo **1:1**: un mensaje va de un hostname a otro (`de` → `para`). No hay salas ni
+  grupos.
+- Los clientes hablan **a través del servidor** (no hay conexión directa entre PCs).
+- El historial se guarda en `datos/chat.jsonl` (un mensaje por línea), independiente de
+  `historial.jsonl` (que sigue siendo solo eventos de caja: conexiones, sesiones, avisos).
+- Clave de conversación: par ordenado de hostnames (`pc-a` + `pc-b`), sin importar quién
+  escribió primero.
+- Si el chat está **deshabilitado**, el servidor rechaza `chat_enviar` con `chat_rechazado`
+  y no entrega mensajes pendientes.
+- Si el destino **no está conectado**, se rechaza el envío (no hay cola offline en esta
+  fase). El historial anterior sí se puede consultar al reconectar.
+- Límite de texto: p. ej. 2000 caracteres por mensaje (validar en protocolo).
+- Retención: últimos **500 mensajes por conversación** en memoria y en disco (configurable).
+
+#### Configuración (`servidor/config.json`)
+
+Campos nuevos:
+
+```json
+{
+  "chat_habilitado": true,
+  "usuario_moderador": "moderador",
+  "password_moderador": "cambia-esta-clave-moderador",
+  "chat_limite_por_conversacion": 500
+}
+```
+
+- `chat_habilitado`: estado inicial. Caja puede cambiarlo en caliente desde el panel.
+- `usuario_moderador` / `password_moderador`: cuenta **distinta** de la de caja
+  (`admin` + `password_panel`). Solo sirve para leer conversaciones, no para mandar avisos
+  ni gestionar sesiones.
+- El instalador del servidor genera una contraseña aleatoria para el moderador y la muestra
+  en pantalla (igual que el token de agentes).
+
+#### Servidor
+
+- `servidor/chat.py`: almacén de mensajes, búsqueda por conversación, recorte por límite,
+  registro en `chat.jsonl` con el mismo patrón de escritura en segundo plano que
+  `historial.jsonl`.
+- En `servidor/servidor.py`: manejar `chat_enviar` y `chat_historial`; reenviar
+  `chat_recibido` al destino; incluir `chat_estado` y `chat_lista` en `bienvenido` (o justo
+  después).
+- Al cambiar `chat_habilitado`, mandar `chat_estado` a **todos** los agentes conectados.
+- El historial de caja (`registrar_evento`) solo registra metadatos administrativos, p. ej.
+  `chat_habilitado_cambiado` y `chat_mensaje_enviado` (equipos involucrados, **sin texto**).
+
+#### Panel de caja (sin ver mensajes)
+
+En el panel habitual (`/`):
+
+- Interruptor **“Chat entre clientes”** (activado / desactivado), reflejando
+  `chat_habilitado`.
+- API:
+  - `GET /api/chat/estado` → `{habilitado: bool}`
+  - `POST /api/chat/habilitar` → `{habilitado: bool}` — usa la misma autenticación de caja
+    que el resto del panel (si aplica).
+- **Prohibido** en rutas de caja: listar conversaciones, leer `chat.jsonl` o devolver
+  `texto` de mensajes. Las pruebas deben comprobar que `/api/equipos` y similares no filtran
+  chat.
+
+#### Panel de moderación (solo lectura, login aparte)
+
+Ruta separada: **`/moderacion/`** (HTML + JS propios en `servidor/panel/moderacion/`).
+
+- Autenticación HTTP Basic con `usuario_moderador` / `password_moderador`. **No** acepta la
+  contraseña de caja.
+- Si alguien entra a `/moderacion/` sin credenciales de moderador → 401.
+- Vista: tabla de conversaciones (pares de equipos, último mensaje **solo hora**, conteo de
+  mensajes). Al elegir una conversación, se muestran los mensajes (de, usuario, texto,
+  cuándo). Solo lectura; no se puede enviar ni borrar desde aquí.
+- API (solo con auth de moderador):
+  - `GET /api/moderacion/conversaciones`
+  - `GET /api/moderacion/mensajes?de=...&para=...&ultimos=50`
+
+#### Agente
+
+- Ventana de chat en tkinter (accesible desde un botón discreto o ítem de menú en la bandeja
+  del sistema si el SO lo permite; mínimo: botón “Chat” en un menú contextual o atajo).
+- Lista de equipos conectados (excepto el propio), con usuario de dominio si está disponible.
+- Al elegir un interlocutor: historial reciente + caja de texto + “Enviar”.
+- Si `chat_estado.habilitado` es `false`: la ventana muestra “El chat está desactivado por
+  caja” y no permite escribir.
+- Mensajes entrantes: notificación visual (y `bell()`) aunque la ventana esté cerrada; al
+  abrirla se ve el historial.
+- Modo consola (Debian sin escritorio): no hay ventana de chat; documentar que el chat 1:1
+  requiere agente gráfico.
+
+#### Protocolo y documentación
+
+- Actualizar `comun/protocolo.py` con validación de los tipos nuevos.
+- Actualizar `docs/protocolo.md` con las tablas de la sección 4 de este plan.
+- Actualizar `docs/guia-instalacion.md`: explicar el interruptor de caja, la cuenta
+  moderador y que las contraseñas van en `config.json`.
+
+#### Pruebas
+
+- Envío 1:1 entre dos agentes simulados: el destino recibe `chat_recibido`.
+- Con chat deshabilitado: `chat_rechazado`.
+- Destino desconectado: `chat_rechazado`.
+- Historial: tras enviar varios mensajes, `chat_historial` devuelve los últimos N.
+- Persistencia: reiniciar el servidor y comprobar que `chat.jsonl` conserva mensajes.
+- Panel caja: puede activar/desactivar; **no** puede leer mensajes (403 o 404 en rutas de
+  moderación con credenciales de caja).
+- Moderación: con usuario/contraseña correctos se listan conversaciones y mensajes; con
+  credenciales de caja → 401.
+
+**Terminado cuando:** con dos agentes simulados (o dos PCs del laboratorio), A manda un
+mensaje a B y B lo ve al instante; al reconectar B ve el historial; caja puede desactivar
+el chat y los envíos fallan; entrando a `/moderacion/` con la cuenta moderador se leen las
+conversaciones, y desde el panel de caja no.
