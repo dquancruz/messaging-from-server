@@ -97,6 +97,14 @@ def _crear_handler(panel: PanelHTTP) -> type[BaseHTTPRequestHandler]:
             ruta = urlparse(self.path).path
             if ruta == "/api/mensaje":
                 self._api_mensaje()
+            elif ruta == "/api/sesion/iniciar":
+                self._api_sesion_iniciar()
+            elif ruta == "/api/sesion/extender":
+                self._api_sesion_extender()
+            elif ruta == "/api/sesion/terminar":
+                self._api_sesion_terminar()
+            elif ruta == "/api/desbloquear":
+                self._api_desbloquear()
             else:
                 self._enviar_error(HTTPStatus.NOT_FOUND, "ruta no encontrada")
 
@@ -187,6 +195,55 @@ def _crear_handler(panel: PanelHTTP) -> type[BaseHTTPRequestHandler]:
                 resultado = futuro.result(timeout=10)
             except Exception as exc:  # noqa: BLE001 - se devuelve al cliente como 500
                 registrador.exception("error al enviar mensaje desde el panel")
+                self._enviar_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+                return
+            self._responder_json(resultado)
+
+        def _api_sesion_iniciar(self) -> None:
+            self._api_sesion("iniciar_sesion", ("equipo", "minutos"))
+
+        def _api_sesion_extender(self) -> None:
+            self._api_sesion("extender_sesion", ("equipo", "minutos"))
+
+        def _api_sesion_terminar(self) -> None:
+            self._api_sesion("terminar_sesion", ("equipo",))
+
+        def _api_desbloquear(self) -> None:
+            self._api_sesion("desbloquear_equipo", ("equipo",))
+
+        def _api_sesion(self, metodo: str, campos: tuple[str, ...]) -> None:
+            cuerpo = self._leer_cuerpo_json()
+            if cuerpo is None:
+                return
+
+            valores: dict[str, Any] = {}
+            for campo in campos:
+                valor = cuerpo.get(campo)
+                if valor is None or (isinstance(valor, str) and not valor.strip()):
+                    self._enviar_error(HTTPStatus.BAD_REQUEST, f"falta el campo '{campo}'")
+                    return
+                valores[campo] = valor
+
+            if "minutos" in valores:
+                minutos = valores["minutos"]
+                if not isinstance(minutos, int) or isinstance(minutos, bool) or minutos <= 0:
+                    self._enviar_error(
+                        HTTPStatus.BAD_REQUEST,
+                        "'minutos' debe ser un entero positivo",
+                    )
+                    return
+
+            futuro = asyncio.run_coroutine_threadsafe(
+                getattr(panel.servidor, metodo)(**valores),
+                panel.loop,
+            )
+            try:
+                resultado = futuro.result(timeout=10)
+            except ValueError as exc:
+                self._enviar_error(HTTPStatus.BAD_REQUEST, str(exc))
+                return
+            except Exception as exc:  # noqa: BLE001
+                registrador.exception("error en API de sesión")
                 self._enviar_error(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
                 return
             self._responder_json(resultado)

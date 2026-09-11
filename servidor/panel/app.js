@@ -32,11 +32,124 @@
     }
   }
 
+  function formatearTiempo(segundos) {
+    if (segundos === null || segundos === undefined) {
+      return "—";
+    }
+    var minutos = Math.floor(segundos / 60);
+    var segs = segundos % 60;
+    return String(minutos).padStart(2, "0") + ":" + String(segs).padStart(2, "0");
+  }
+
+  function claseTiempo(segundos) {
+    if (segundos === null || segundos === undefined) {
+      return "";
+    }
+    if (segundos <= 0) {
+      return "tiempo-agotado";
+    }
+    if (segundos < 300) {
+      return "tiempo-bajo";
+    }
+    return "tiempo-ok";
+  }
+
+  function llamarApi(ruta, cuerpo) {
+    return fetch(ruta, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpo)
+    }).then(function (resp) {
+      return resp.json().then(function (datos) {
+        if (!resp.ok) {
+          throw new Error(datos.error || "Error en la petición");
+        }
+        return datos;
+      });
+    });
+  }
+
+  function accionSesion(equipo, accion, minutos) {
+    var cuerpo = { equipo: equipo };
+    var ruta;
+    if (accion === "iniciar") {
+      ruta = "/api/sesion/iniciar";
+      cuerpo.minutos = minutos;
+    } else if (accion === "extender") {
+      ruta = "/api/sesion/extender";
+      cuerpo.minutos = minutos;
+    } else if (accion === "terminar") {
+      ruta = "/api/sesion/terminar";
+    } else if (accion === "desbloquear") {
+      ruta = "/api/desbloquear";
+    } else {
+      return Promise.reject(new Error("acción desconocida"));
+    }
+
+    estadoEnvio.textContent = "Procesando sesión…";
+    estadoEnvio.className = "estado-envio";
+    return llamarApi(ruta, cuerpo)
+      .then(function () {
+        estadoEnvio.textContent = "Sesión actualizada para " + equipo;
+        estadoEnvio.className = "estado-envio ok";
+        actualizarEquipos();
+      })
+      .catch(function (err) {
+        estadoEnvio.textContent = err.message;
+        estadoEnvio.className = "estado-envio error";
+      });
+  }
+
+  function botonesSesion(eq) {
+    if (!eq.conectado) {
+      return '<span class="sesion-offline">—</span>';
+    }
+
+    var nombre = eq.nombre;
+    var bloqueado = eq.bloqueado;
+    var html =
+      '<div class="acciones-sesion">' +
+      '<button type="button" class="btn-sesion" data-accion="iniciar" data-equipo="' +
+      nombre +
+      '" data-minutos="15">15 min</button>' +
+      '<button type="button" class="btn-sesion" data-accion="iniciar" data-equipo="' +
+      nombre +
+      '" data-minutos="30">30 min</button>' +
+      '<button type="button" class="btn-sesion" data-accion="iniciar" data-equipo="' +
+      nombre +
+      '" data-minutos="60">60 min</button>' +
+      '<button type="button" class="btn-sesion" data-accion="extender" data-equipo="' +
+      nombre +
+      '" data-minutos="15">+15 min</button>' +
+      '<button type="button" class="btn-sesion btn-terminar" data-accion="terminar" data-equipo="' +
+      nombre +
+      '">Terminar</button>';
+
+    if (bloqueado) {
+      html +=
+        '<button type="button" class="btn-sesion btn-desbloquear" data-accion="desbloquear" data-equipo="' +
+        nombre +
+        '">Desbloquear</button>';
+    }
+
+    html +=
+      '<label class="minutos-libres">' +
+      '<input type="number" min="1" max="480" value="20" class="input-minutos" data-equipo="' +
+      nombre +
+      '">' +
+      '<button type="button" class="btn-sesion" data-accion="iniciar-libre" data-equipo="' +
+      nombre +
+      '">Iniciar</button>' +
+      "</label></div>";
+
+    return html;
+  }
+
   function renderizarEquipos(equipos) {
     equiposActuales = equipos;
     if (!equipos.length) {
       cuerpoEquipos.innerHTML =
-        '<tr><td colspan="7" class="vacio">No hay equipos registrados todavía.</td></tr>';
+        '<tr><td colspan="9" class="vacio">No hay equipos registrados todavía.</td></tr>';
       return;
     }
 
@@ -44,9 +157,14 @@
       var icono = iconosSO[eq.so] || "💻";
       var usuarios = (eq.usuarios || []).join(", ") || "—";
       var claseFila = eq.conectado ? "" : "desconectado";
-      var estado = eq.conectado
-        ? '<span class="estado-badge conectado">Conectado</span>'
-        : '<span class="estado-badge desconectado">Desconectado</span>';
+      var estado;
+      if (eq.bloqueado) {
+        estado = '<span class="estado-badge bloqueado">Bloqueado</span>';
+      } else if (eq.conectado) {
+        estado = '<span class="estado-badge conectado">Conectado</span>';
+      } else {
+        estado = '<span class="estado-badge desconectado">Desconectado</span>';
+      }
 
       var visto;
       if (eq.ultimo_visto) {
@@ -58,6 +176,7 @@
       }
 
       var deshabilitado = eq.conectado ? "" : " disabled";
+      var tiempo = formatearTiempo(eq.tiempo_restante);
 
       return (
         '<tr class="' + claseFila + '">' +
@@ -80,17 +199,49 @@
         "<td>" +
         (eq.ip || "—") +
         "</td>" +
+        '<td class="col-tiempo ' +
+        claseTiempo(eq.tiempo_restante) +
+        '">' +
+        tiempo +
+        "</td>" +
         "<td>" +
         estado +
         "</td>" +
         "<td>" +
         visto +
         "</td>" +
+        '<td class="col-sesion">' +
+        botonesSesion(eq) +
+        "</td>" +
         "</tr>"
       );
     });
 
     cuerpoEquipos.innerHTML = filas.join("");
+
+    document.querySelectorAll(".btn-sesion").forEach(function (boton) {
+      boton.addEventListener("click", function () {
+        var equipo = boton.getAttribute("data-equipo");
+        var accion = boton.getAttribute("data-accion");
+        var minutos = parseInt(boton.getAttribute("data-minutos") || "0", 10);
+        if (accion === "iniciar-libre") {
+          var input = document.querySelector('.input-minutos[data-equipo="' + equipo + '"]');
+          minutos = parseInt(input.value, 10);
+          if (!minutos || minutos <= 0) {
+            estadoEnvio.textContent = "Indica minutos válidos.";
+            estadoEnvio.className = "estado-envio error";
+            return;
+          }
+          accionSesion(equipo, "iniciar", minutos);
+          return;
+        }
+        if (accion === "terminar" || accion === "desbloquear") {
+          accionSesion(equipo, accion);
+        } else {
+          accionSesion(equipo, accion, minutos);
+        }
+      });
+    });
 
     if (seleccionarTodos.checked) {
       document.querySelectorAll(".sel-equipo:not(:disabled)").forEach(function (cb) {
@@ -118,7 +269,7 @@
       .then(renderizarEquipos)
       .catch(function (err) {
         cuerpoEquipos.innerHTML =
-          '<tr><td colspan="7" class="vacio">Error al cargar equipos: ' +
+          '<tr><td colspan="9" class="vacio">Error al cargar equipos: ' +
           err.message +
           "</td></tr>";
       });

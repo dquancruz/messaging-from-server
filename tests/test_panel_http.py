@@ -45,6 +45,7 @@ class PruebasPanelHTTP(unittest.IsolatedAsyncioTestCase):
             token="secreto",
             host="127.0.0.1",
             puerto=0,
+            habilitar_temporizador=False,
         )
         self.servidor_asyncio = await self.servidor.iniciar()
         self.loop = asyncio.get_running_loop()
@@ -126,6 +127,22 @@ class PruebasPanelHTTP(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(ctx.exception.code, 400)
 
+    async def test_api_sesion_iniciar(self):
+        status, resultado = await asyncio.to_thread(
+            _peticion,
+            f"{self.base_url}/api/sesion/iniciar",
+            "POST",
+            {"equipo": "pc-01", "minutos": 15},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(resultado["equipo"], "pc-01")
+        self.assertGreaterEqual(resultado["restante"], 15 * 60 - 2)
+        self.assertLessEqual(resultado["restante"], 15 * 60)
+
+        linea = await asyncio.wait_for(self.lector.readline(), timeout=2)
+        mensaje = protocolo.decodificar_linea(linea, protocolo.TIPOS_SERVIDOR_AGENTE)
+        self.assertEqual(mensaje["tipo"], "desbloquear")
+
     def test_pagina_principal_se_sirve(self):
         req = urllib.request.Request(f"{self.base_url}/")
         with urllib.request.urlopen(req, timeout=5) as resp:
@@ -155,6 +172,7 @@ class PruebasEnviarMensaje(unittest.IsolatedAsyncioTestCase):
             token="secreto",
             host="127.0.0.1",
             puerto=0,
+            habilitar_temporizador=False,
         )
         self.servidor_asyncio = await self.servidor.iniciar()
 

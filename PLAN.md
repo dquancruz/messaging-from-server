@@ -4,10 +4,10 @@
 
 - [x] Fase 0 — Estructura del proyecto
 - [x] Fase 1 — Protocolo y núcleo del servidor
-- [ ] Fase 2 — Agente con ventanas emergentes
+- [x] Fase 2 — Agente con ventanas emergentes
 - [x] Fase 3 — Panel web del servidor
-- [ ] Fase 4 — Sesiones con tiempo (lo "cibercafé")
-- [ ] Fase 5 — Instaladores por sistema operativo
+- [x] Fase 4 — Sesiones con tiempo (lo "cibercafé")
+- [x] Fase 5 — Instaladores por sistema operativo
 - [x] Fase 6 — Pruebas en la red real
 - [ ] Fase 7 — Extras (opcionales)
 

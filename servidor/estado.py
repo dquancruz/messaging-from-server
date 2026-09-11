@@ -1,9 +1,4 @@
-"""Estado en memoria del servidor: equipos conectados e historial.
-
-La Fase 1 solo cubre registro y conexiones; las sesiones con tiempo
-(bloqueo, contador, avisos automáticos) llegan en la Fase 4 — ver
-PLAN.md.
-"""
+"""Estado en memoria del servidor: equipos, sesiones e historial."""
 
 from __future__ import annotations
 
@@ -14,7 +9,9 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+from servidor.sesiones import AccionSesion, GestorSesiones
 
 registrador = logging.getLogger("servidor.estado")
 
@@ -70,7 +67,7 @@ class Equipo:
             "conexiones_activas": len(self.conexiones),
         }
 
-    def a_dict_api(self) -> dict[str, Any]:
+    def a_dict_api(self, gestor_sesiones: GestorSesiones) -> dict[str, Any]:
         """Vista para el panel web: incluye IP, visto y campos de sesión."""
         return {
             "nombre": self.nombre,
@@ -78,8 +75,8 @@ class Equipo:
             "conectado": self.conectado,
             "usuarios": self.usuarios(),
             "ip": ", ".join(self.ips()) if self.ips() else "",
-            "tiempo_restante": None,
-            "bloqueado": False,
+            "tiempo_restante": gestor_sesiones.tiempo_restante(self.nombre),
+            "bloqueado": gestor_sesiones.esta_bloqueado(self.nombre),
             "ultimo_mensaje_id": self.ultimo_mensaje_id,
             "ultimo_visto": self.ultimo_visto,
         }
@@ -96,12 +93,20 @@ class EstadoServidor:
         self,
         archivo_historial: Path | str | None = None,
         limite_historial: int = 500,
+        avisos_minutos: list[int] | None = None,
+        texto_fin_sesion: str = "Tu tiempo terminó, pasa a caja.",
+        reloj: Callable[[], float] | None = None,
     ) -> None:
         self.equipos: dict[str, Equipo] = {}
         self._historial: list[dict[str, Any]] = []
         self._limite_historial = limite_historial
         self._archivo_historial = Path(archivo_historial) if archivo_historial else None
         self._siguiente_id_conexion = 1
+        self.sesiones = GestorSesiones(
+            avisos_minutos=avisos_minutos,
+            texto_fin_sesion=texto_fin_sesion,
+            reloj=reloj,
+        )
         # Un solo hilo dedicado a escribir historial.jsonl: saca esa I/O
         # bloqueante del hilo del event loop sin perder el orden de los
         # eventos (un solo worker los procesa en el orden en que llegan).
@@ -232,7 +237,45 @@ class EstadoServidor:
         return [e.a_dict() for e in sorted(self.equipos.values(), key=lambda e: e.nombre)]
 
     def obtener_equipos_api(self) -> list[dict[str, Any]]:
-        return [e.a_dict_api() for e in sorted(self.equipos.values(), key=lambda e: e.nombre)]
+        return [
+            e.a_dict_api(self.sesiones)
+            for e in sorted(self.equipos.values(), key=lambda e: e.nombre)
+        ]
+
+    def iniciar_sesion(self, equipo: str, minutos: int) -> bool:
+        nombre = equipo.strip().lower()
+        if nombre not in self.equipos:
+            return False
+        self.sesiones.iniciar(nombre, minutos)
+        self.registrar_evento("sesion_iniciada", equipo=nombre, minutos=minutos)
+        return True
+
+    def extender_sesion(self, equipo: str, minutos: int) -> bool:
+        nombre = equipo.strip().lower()
+        if nombre not in self.equipos:
+            return False
+        self.sesiones.extender(nombre, minutos)
+        self.registrar_evento("sesion_extendida", equipo=nombre, minutos=minutos)
+        return True
+
+    def terminar_sesion(self, equipo: str) -> bool:
+        nombre = equipo.strip().lower()
+        if nombre not in self.equipos:
+            return False
+        self.sesiones.terminar(nombre)
+        self.registrar_evento("sesion_terminada", equipo=nombre)
+        return True
+
+    def desbloquear_equipo(self, equipo: str) -> bool:
+        nombre = equipo.strip().lower()
+        if nombre not in self.equipos:
+            return False
+        self.sesiones.desbloquear(nombre)
+        self.registrar_evento("desbloqueado", equipo=nombre)
+        return True
+
+    def revisar_sesiones(self) -> list[AccionSesion]:
+        return self.sesiones.revisar(set(self.equipos.keys()))
 
     def registrar_mensaje_enviado(self, equipo: str, id_mensaje: str) -> None:
         """Marca que se envió un mensaje al equipo y espera confirmación."""
