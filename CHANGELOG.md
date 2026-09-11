@@ -4,6 +4,7 @@
 ### Added
 ### Changed
 ### Fixed
+- lectura de `config.json` / `agente.json` con BOM UTF-8 (instaladores Windows en PowerShell 5.1)
 ### Security
 ### Deprecated
 

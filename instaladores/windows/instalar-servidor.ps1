@@ -82,7 +82,9 @@ $configObj = [ordered]@{
     password_moderador       = $passwordModerador
     chat_limite_por_conversacion = 500
 }
-$configObj | ConvertTo-Json -Depth 5 | Set-Content -Path $config -Encoding UTF8
+$jsonConfig = $configObj | ConvertTo-Json -Depth 5
+$utf8SinBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($config, $jsonConfig, $utf8SinBom)
 
 Write-Paso "Paso 4/6: regla de firewall (TCP 5050, Dominio y Privado)"
 $nombreRegla = "Ciber Mensajeria - Agentes TCP 5050"

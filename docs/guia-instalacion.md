@@ -52,6 +52,12 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 5. **Guarde el token** en un lugar seguro. Lo necesitará para cada agente.
 
+> **Actualizar a una versión nueva:** volver a ejecutar `instalar-servidor.ps1`
+> **sobrescribe** `C:\CiberMensajeria\config.json` con un token y contraseñas
+> nuevos. Si ya tiene agentes instalados, anote el token actual antes de
+> actualizar, o edite solo los archivos `.py` sin volver a correr el instalador
+> completo.
+
 ### Si falta Python en DC01
 
 1. Descargue el instalador desde https://www.python.org/downloads/
@@ -222,6 +228,7 @@ gráfica (tkinter) puede chatear.
 | El agente no aparece en el panel | ¿Resuelve `dc01.lab.lan`? (`ping dc01.lab.lan`) |
 | No conecta al servidor | Firewall de DC01: puerto 5050. Desde Windows: `Test-NetConnection dc01.lab.lan -Port 5050`. Desde Linux: `nc -zv dc01.lab.lan 5050` |
 | Token rechazado | El token del agente debe coincidir con `C:\CiberMensajeria\config.json` en DC01 |
+| `config.json` no es JSON válido: Unexpected UTF-8 BOM | Ocurre al reinstalar el servidor con una versión antigua del instalador: PowerShell escribe el JSON con BOM y Python no lo acepta. **Solución rápida:** abra `C:\CiberMensajeria\config.json` en el Bloc de notas, **Guardar como… → Codificación: UTF-8** (sin la variante «con BOM»). **Solución permanente:** use el instalador actualizado del repositorio (ya escribe UTF-8 sin BOM) o actualice el código del servidor a una versión que lea `utf-8-sig`. |
 | Acentos rotos en PowerShell | Los `.ps1` deben tener BOM UTF-8 (ya incluido en el repositorio) |
 | Dos ventanas del agente | Solo una instancia por usuario; revise el log en la carpeta de logs del SO |
 

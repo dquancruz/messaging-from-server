@@ -31,7 +31,7 @@ class ErrorConfiguracion(Exception):
 
 def cargar_config(ruta: Path) -> dict:
     try:
-        with ruta.open("r", encoding="utf-8") as f:
+        with ruta.open("r", encoding="utf-8-sig") as f:
             config = json.load(f)
     except OSError as exc:
         raise ErrorConfiguracion(f"no se pudo leer '{ruta}': {exc}") from exc
