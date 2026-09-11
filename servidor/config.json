@@ -17,5 +17,9 @@
   "respaldo_timeout_segundos": 15,
   "tls_habilitado": false,
   "tls_certificado": null,
-  "tls_clave": null
+  "tls_clave": null,
+  "chat_habilitado": true,
+  "usuario_moderador": "moderador",
+  "password_moderador": "cambia-esta-clave-moderador",
+  "chat_limite_por_conversacion": 500
 }

@@ -32,6 +32,8 @@ Implementado en `comun/protocolo.py`.
 | `hola` | `token`, `equipo`, `so` (`windows`/`linux`/`macos`), `version_so`, `usuario`, `version_agente` | Primer mensaje obligatorio de toda conexión. `equipo` es el hostname; el servidor lo normaliza a minúsculas. |
 | `visto` | `id` | El usuario cerró un `mensaje` con "Entendido". |
 | `ping` | — | Latido, cada 15 s. |
+| `chat_enviar` | `destino`, `texto` | Fase 8. Mensaje 1:1 a otro equipo conectado (máx. 2000 caracteres). |
+| `chat_historial` | `con`, `ultimos` (opcional) | Fase 8. Pide el historial con un interlocutor. |
 
 ## Servidor → agente
 
@@ -44,6 +46,12 @@ Implementado en `comun/protocolo.py`.
 | `bloquear` | `texto` | Fase 4. |
 | `desbloquear` | — | Fase 4. |
 | `pong` | — | Respuesta a `ping`. |
+| `chat_estado` | `habilitado` (bool) | Fase 8. Al conectar y cuando caja cambia el interruptor. |
+| `chat_recibido` | `id`, `de`, `de_usuario`, `texto`, `cuando` | Fase 8. Mensaje entrante de otro cliente. |
+| `chat_enviado` | `id`, `para`, `cuando` | Fase 8. Confirmación de que el servidor guardó y reenvió. |
+| `chat_rechazado` | `motivo` | Fase 8. Chat deshabilitado, destino inexistente o desconectado. |
+| `chat_historial_respuesta` | `con`, `mensajes` (lista) | Fase 8. Respuesta a `chat_historial`. |
+| `chat_lista` | `equipos` (lista de `{nombre, usuario, conectado}`) | Fase 8. Equipos disponibles para chatear (sin incluir al propio). |
 
 ## Errores de protocolo
 

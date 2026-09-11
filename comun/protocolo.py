@@ -33,6 +33,9 @@ ESPERAS_RECONEXION = (1, 2, 4, 8, 16, 30)
 # Un mensaje (la línea JSON completa, con el "\n") de más de esto se rechaza.
 TAMANO_MAXIMO_MENSAJE = 64 * 1024  # 64 KB
 
+# Longitud máxima del texto de un mensaje de chat 1:1 (Fase 8).
+LIMITE_TEXTO_CHAT = 2000
+
 SISTEMAS_OPERATIVOS_VALIDOS = frozenset({"windows", "linux", "macos"})
 NIVELES_VALIDOS = frozenset({"info", "aviso", "critico"})
 
@@ -53,6 +56,8 @@ _CAMPOS_AGENTE_SERVIDOR: dict[str, frozenset[str]] = {
     ),
     "visto": frozenset({"id"}),
     "ping": frozenset(),
+    "chat_enviar": frozenset({"destino", "texto"}),
+    "chat_historial": frozenset({"con"}),
 }
 
 # Servidor -> agente
@@ -64,6 +69,12 @@ _CAMPOS_SERVIDOR_AGENTE: dict[str, frozenset[str]] = {
     "bloquear": frozenset({"texto"}),
     "desbloquear": frozenset(),
     "pong": frozenset(),
+    "chat_estado": frozenset({"habilitado"}),
+    "chat_recibido": frozenset({"id", "de", "de_usuario", "texto", "cuando"}),
+    "chat_enviado": frozenset({"id", "para", "cuando"}),
+    "chat_rechazado": frozenset({"motivo"}),
+    "chat_historial_respuesta": frozenset({"con", "mensajes"}),
+    "chat_lista": frozenset({"equipos"}),
 }
 
 CAMPOS_REQUERIDOS: dict[str, frozenset[str]] = {
@@ -106,6 +117,45 @@ def _es_segundos_o_none(valor: Any) -> bool:
     return valor is None or (isinstance(valor, int) and not isinstance(valor, bool) and valor >= 0)
 
 
+def _es_texto_chat(valor: Any) -> bool:
+    return isinstance(valor, str) and 0 < len(valor) <= LIMITE_TEXTO_CHAT
+
+
+def _es_entero_positivo(valor: Any) -> bool:
+    return isinstance(valor, int) and not isinstance(valor, bool) and valor > 0
+
+
+def _es_lista_mensajes_chat(valor: Any) -> bool:
+    if not isinstance(valor, list):
+        return False
+    campos = frozenset({"id", "de", "de_usuario", "texto", "cuando"})
+    for item in valor:
+        if not isinstance(item, dict):
+            return False
+        if campos - item.keys():
+            return False
+        if not all(isinstance(item[c], str) for c in campos):
+            return False
+    return True
+
+
+def _es_lista_equipos_chat(valor: Any) -> bool:
+    if not isinstance(valor, list):
+        return False
+    for item in valor:
+        if not isinstance(item, dict):
+            return False
+        if not {"nombre", "usuario", "conectado"} <= item.keys():
+            return False
+        if not isinstance(item["nombre"], str) or not item["nombre"].strip():
+            return False
+        if not isinstance(item["usuario"], str):
+            return False
+        if not isinstance(item["conectado"], bool):
+            return False
+    return True
+
+
 _VALIDADORES_CAMPOS: dict[str, dict[str, Callable[[Any], bool]]] = {
     "hola": {
         "token": _es_str_no_vacio,
@@ -130,6 +180,27 @@ _VALIDADORES_CAMPOS: dict[str, dict[str, Callable[[Any], bool]]] = {
     "bloquear": {"texto": _es_str},
     "desbloquear": {},
     "pong": {},
+    "chat_enviar": {"destino": _es_str_no_vacio, "texto": _es_texto_chat},
+    "chat_historial": {"con": _es_str_no_vacio},
+    "chat_estado": {"habilitado": _es_bool},
+    "chat_recibido": {
+        "id": _es_str_no_vacio,
+        "de": _es_str_no_vacio,
+        "de_usuario": _es_str,
+        "texto": _es_str,
+        "cuando": _es_str,
+    },
+    "chat_enviado": {
+        "id": _es_str_no_vacio,
+        "para": _es_str_no_vacio,
+        "cuando": _es_str,
+    },
+    "chat_rechazado": {"motivo": _es_str},
+    "chat_historial_respuesta": {
+        "con": _es_str_no_vacio,
+        "mensajes": _es_lista_mensajes_chat,
+    },
+    "chat_lista": {"equipos": _es_lista_equipos_chat},
 }
 
 
@@ -169,6 +240,13 @@ def _validar_mensaje(
         if not es_valido(valor):
             raise ErrorProtocolo(
                 f"campo '{campo}' inválido para el tipo '{tipo}': {valor!r}"
+            )
+
+    if tipo == "chat_historial":
+        ultimos = mensaje.get("ultimos")
+        if ultimos is not None and not _es_entero_positivo(ultimos):
+            raise ErrorProtocolo(
+                f"campo 'ultimos' inválido para el tipo 'chat_historial': {ultimos!r}"
             )
 
     return mensaje

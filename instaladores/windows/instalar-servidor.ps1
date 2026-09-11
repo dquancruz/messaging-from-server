@@ -57,25 +57,30 @@ $config = Join-Path $destino "config.json"
 $datos = Join-Path $destino "datos"
 
 Write-Paso "Paso 2/6: copiar archivos a $destino"
-New-Item -ItemType Directory -Force -Path $destino, (Join-Path $destino "comun"), (Join-Path $destino "servidor"), (Join-Path $destino "servidor\panel") | Out-Null
+New-Item -ItemType Directory -Force -Path $destino, (Join-Path $destino "comun"), (Join-Path $destino "servidor"), (Join-Path $destino "servidor\panel"), (Join-Path $destino "servidor\panel\moderacion") | Out-Null
 
 Copy-Item -Path (Join-Path $raizProyecto "comun\*.py") -Destination (Join-Path $destino "comun") -Force
 Copy-Item -Path (Join-Path $raizProyecto "servidor\*.py") -Destination (Join-Path $destino "servidor") -Force
-Copy-Item -Path (Join-Path $raizProyecto "servidor\panel\*") -Destination (Join-Path $destino "servidor\panel") -Force
+Copy-Item -Path (Join-Path $raizProyecto "servidor\panel\*") -Destination (Join-Path $destino "servidor\panel") -Recurse -Force
 
 Write-Paso "Paso 3/6: generar configuración con token aleatorio"
 $token = [guid]::NewGuid().ToString("N")
 $passwordPanel = [guid]::NewGuid().ToString("N").Substring(0, 16)
+$passwordModerador = [guid]::NewGuid().ToString("N").Substring(0, 16)
 
 $configObj = [ordered]@{
-    host_agentes     = "0.0.0.0"
-    puerto_agentes   = 5050
-    host_panel       = "127.0.0.1"
-    puerto_panel     = 8080
-    password_panel   = $passwordPanel
-    token            = $token
-    avisos_minutos   = @(5, 1)
-    texto_fin_sesion = "Tu tiempo terminó, pasa a caja."
+    host_agentes               = "0.0.0.0"
+    puerto_agentes             = 5050
+    host_panel                 = "127.0.0.1"
+    puerto_panel               = 8080
+    password_panel             = $passwordPanel
+    token                      = $token
+    avisos_minutos             = @(5, 1)
+    texto_fin_sesion           = "Tu tiempo terminó, pasa a caja."
+    chat_habilitado            = $true
+    usuario_moderador          = "moderador"
+    password_moderador       = $passwordModerador
+    chat_limite_por_conversacion = 500
 }
 $configObj | ConvertTo-Json -Depth 5 | Set-Content -Path $config -Encoding UTF8
 
@@ -121,7 +126,11 @@ Write-Host ""
 Write-Host "TOKEN para los agentes (guárdelo):" -ForegroundColor Yellow
 Write-Host "  $token" -ForegroundColor White
 Write-Host ""
+Write-Host "Moderación de chat (usuario: moderador):" -ForegroundColor Yellow
+Write-Host "  $passwordModerador" -ForegroundColor White
+Write-Host ""
 Write-Host "Panel web: http://localhost:8080"
+Write-Host "Moderación: http://localhost:8080/moderacion/"
 Write-Host "Archivos:  $destino"
 Write-Host "Logs:      $datos\servidor.log"
 Write-Host ""

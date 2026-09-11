@@ -71,6 +71,31 @@ def manejar_mensaje_servidor(mensaje: dict, cola_ui: queue.Queue) -> None:
         registrador.error("rechazado por el servidor: %s", mensaje.get("motivo"))
     elif tipo == "pong":
         registrador.debug("mensaje del servidor: %s", tipo)
+    elif tipo == "chat_estado":
+        cola_ui.put({"tipo": "chat_estado", "habilitado": mensaje.get("habilitado")})
+    elif tipo == "chat_lista":
+        cola_ui.put({"tipo": "chat_lista", "equipos": mensaje.get("equipos", [])})
+    elif tipo == "chat_recibido":
+        cola_ui.put({"tipo": "chat_recibido", "mensaje": mensaje})
+    elif tipo == "chat_enviado":
+        cola_ui.put(
+            {
+                "tipo": "chat_enviado",
+                "id": mensaje.get("id"),
+                "para": mensaje.get("para"),
+                "cuando": mensaje.get("cuando"),
+            }
+        )
+    elif tipo == "chat_rechazado":
+        cola_ui.put({"tipo": "chat_rechazado", "motivo": mensaje.get("motivo")})
+    elif tipo == "chat_historial_respuesta":
+        cola_ui.put(
+            {
+                "tipo": "chat_historial_respuesta",
+                "con": mensaje.get("con"),
+                "mensajes": mensaje.get("mensajes", []),
+            }
+        )
     else:
         registrador.warning("tipo de mensaje desconocido del servidor: %s", tipo)
 
@@ -178,12 +203,31 @@ class ClienteRed(threading.Thread):
                 evento = self.cola_red.get_nowait()
             except queue.Empty:
                 return
-            if evento.get("tipo") == "visto":
+            tipo = evento.get("tipo")
+            if tipo == "visto":
                 sock.sendall(
                     protocolo.codificar(
                         {"tipo": "visto", "id": evento["id"]},
                         protocolo.TIPOS_AGENTE_SERVIDOR,
                     )
+                )
+            elif tipo == "chat_enviar":
+                sock.sendall(
+                    protocolo.codificar(
+                        {
+                            "tipo": "chat_enviar",
+                            "destino": evento["destino"],
+                            "texto": evento["texto"],
+                        },
+                        protocolo.TIPOS_AGENTE_SERVIDOR,
+                    )
+                )
+            elif tipo == "chat_historial":
+                mensaje = {"tipo": "chat_historial", "con": evento["con"]}
+                if "ultimos" in evento:
+                    mensaje["ultimos"] = evento["ultimos"]
+                sock.sendall(
+                    protocolo.codificar(mensaje, protocolo.TIPOS_AGENTE_SERVIDOR)
                 )
 
     def _leer_siguiente_mensaje(
