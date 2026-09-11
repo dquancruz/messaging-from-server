@@ -148,6 +148,11 @@
   }
 
   function renderizarEquipos(equipos) {
+    var seleccionPrevios = {};
+    document.querySelectorAll(".sel-equipo:checked").forEach(function (cb) {
+      seleccionPrevios[cb.getAttribute("data-nombre")] = true;
+    });
+
     equiposActuales = equipos;
     if (!equipos.length) {
       cuerpoEquipos.innerHTML =
@@ -249,11 +254,10 @@
       });
     });
 
-    if (seleccionarTodos.checked) {
-      document.querySelectorAll(".sel-equipo:not(:disabled)").forEach(function (cb) {
-        cb.checked = true;
-      });
-    }
+    document.querySelectorAll(".sel-equipo:not(:disabled)").forEach(function (cb) {
+      var nombre = cb.getAttribute("data-nombre");
+      cb.checked = seleccionarTodos.checked || !!seleccionPrevios[nombre];
+    });
   }
 
   function obtenerSeleccionados() {

@@ -14,6 +14,7 @@ from agente.chat_util import (
     MARCA_ENVIANDO,
     confirmar_mensaje_en_historial,
     fusionar_historial_con_pendientes,
+    indice_interlocutor,
     revertir_pendiente_en_historial,
 )
 from comun import protocolo
@@ -139,6 +140,16 @@ class PruebasChatUtil(unittest.TestCase):
         fusionado = fusionar_historial_con_pendientes(servidor, local, "pc-a")
         self.assertEqual(len(fusionado), 2)
         self.assertEqual(fusionado[-1]["cuando"], MARCA_ENVIANDO)
+
+    def test_indice_interlocutor_normaliza_nombre(self):
+        equipos = [
+            {"nombre": "PC-B", "usuario": "bob", "conectado": True},
+            {"nombre": "pc-c", "usuario": "carol", "conectado": True},
+        ]
+        self.assertEqual(indice_interlocutor(equipos, "pc-b"), 0)
+        self.assertEqual(indice_interlocutor(equipos, "PC-C"), 1)
+        self.assertIsNone(indice_interlocutor(equipos, "pc-z"))
+        self.assertIsNone(indice_interlocutor(equipos, None))
 
 
 class PruebasManejoMensajesChat(unittest.TestCase):
