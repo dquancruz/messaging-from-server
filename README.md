@@ -14,8 +14,12 @@ Proyecto universitario (cursos de Sistemas Operativos y de Servidores y Redes).
   comandos.
 - [`PLAN.md`](PLAN.md) — el plan completo, por fases. Es la fuente de verdad
   del estado del proyecto.
-- `docs/` — protocolo, guía de instalación, guion de demo (se llenan en sus
-  fases correspondientes).
+- [`docs/protocolo.md`](docs/protocolo.md) — mensajes agente ↔ servidor.
+- [`docs/checklist-pruebas.md`](docs/checklist-pruebas.md) — pruebas en la red
+  real del laboratorio (Fase 6).
+- [`docs/guion-demo.md`](docs/guion-demo.md) — guion de 5 minutos para la
+  presentación (Fase 6).
+- `docs/guia-instalacion.md` — guía de instaladores (Fase 5).
 
 ## Estructura
 
