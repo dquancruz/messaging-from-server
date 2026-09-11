@@ -7,6 +7,10 @@
 ### Security
 ### Deprecated
 
+## [0.5.1] - 2026-09-11
+### Fixed
+- conservar selección de equipo y mostrar botón Chat ([#15](https://github.com/dquancruz/messaging-from-server/pull/15/dquancruz/messaging-from-server/actions/runs/34659593787))
+
 ## [0.5.0] - 2026-09-11
 ### Added
 - comando para iniciar servidor y token del laboratorio en el repo ([#14](https://github.com/dquancruz/messaging-from-server/pull/14/dquancruz/messaging-from-server/actions/runs/34658835110))
