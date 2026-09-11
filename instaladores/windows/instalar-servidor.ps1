@@ -3,8 +3,9 @@
 # Uso (PowerShell como Administrador):
 #   .\instalar-servidor.ps1
 #
-# Copia el proyecto a C:\CiberMensajeria\, genera un token aleatorio,
-# abre el puerto 5050 en el firewall y crea una tarea programada.
+# Copia el proyecto a C:\CiberMensajeria\, usa la configuración del repositorio
+# (token compartido del laboratorio), abre el puerto 5050 en el firewall y
+# crea una tarea programada.
 
 #Requires -RunAsAdministrator
 
@@ -62,27 +63,19 @@ New-Item -ItemType Directory -Force -Path $destino, (Join-Path $destino "comun")
 Copy-Item -Path (Join-Path $raizProyecto "comun\*.py") -Destination (Join-Path $destino "comun") -Force
 Copy-Item -Path (Join-Path $raizProyecto "servidor\*.py") -Destination (Join-Path $destino "servidor") -Force
 Copy-Item -Path (Join-Path $raizProyecto "servidor\panel\*") -Destination (Join-Path $destino "servidor\panel") -Recurse -Force
+Copy-Item -Path (Join-Path $PSScriptRoot "iniciar-servidor.ps1") -Destination (Join-Path $destino "iniciar-servidor.ps1") -Force
 
-Write-Paso "Paso 3/6: generar configuración con token aleatorio"
-$token = [guid]::NewGuid().ToString("N")
-$passwordPanel = [guid]::NewGuid().ToString("N").Substring(0, 16)
-$passwordModerador = [guid]::NewGuid().ToString("N").Substring(0, 16)
-
-$configObj = [ordered]@{
-    host_agentes               = "0.0.0.0"
-    puerto_agentes             = 5050
-    host_panel                 = "127.0.0.1"
-    puerto_panel               = 8080
-    password_panel             = $passwordPanel
-    token                      = $token
-    avisos_minutos             = @(5, 1)
-    texto_fin_sesion           = "Tu tiempo terminó, pasa a caja."
-    chat_habilitado            = $true
-    usuario_moderador          = "moderador"
-    password_moderador       = $passwordModerador
-    chat_limite_por_conversacion = 500
+Write-Paso "Paso 3/6: copiar configuración del repositorio"
+$configOrigen = Join-Path $raizProyecto "servidor\config.json"
+if (-not (Test-Path $configOrigen)) {
+    Write-Host "No se encontró $configOrigen" -ForegroundColor Red
+    exit 1
 }
-$configObj | ConvertTo-Json -Depth 5 | Set-Content -Path $config -Encoding UTF8
+Copy-Item -Path $configOrigen -Destination $config -Force
+$configObj = Get-Content -Path $config -Raw | ConvertFrom-Json
+$token = $configObj.token
+$passwordPanel = $configObj.password_panel
+$passwordModerador = $configObj.password_moderador
 
 Write-Paso "Paso 4/6: regla de firewall (TCP 5050, Dominio y Privado)"
 $nombreRegla = "Ciber Mensajeria - Agentes TCP 5050"
@@ -123,16 +116,19 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host " Instalación del servidor completada" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "TOKEN para los agentes (guárdelo):" -ForegroundColor Yellow
+Write-Host "Token de agentes (incluido en el repositorio):" -ForegroundColor Yellow
 Write-Host "  $token" -ForegroundColor White
 Write-Host ""
-Write-Host "Moderación de chat (usuario: moderador):" -ForegroundColor Yellow
-Write-Host "  $passwordModerador" -ForegroundColor White
+Write-Host "Panel web (contraseña: $passwordPanel):" -ForegroundColor Yellow
+Write-Host "  http://localhost:8080"
 Write-Host ""
-Write-Host "Panel web: http://localhost:8080"
-Write-Host "Moderación: http://localhost:8080/moderacion/"
+Write-Host "Moderación de chat (usuario: moderador, contraseña: $passwordModerador):" -ForegroundColor Yellow
+Write-Host "  http://localhost:8080/moderacion/"
+Write-Host ""
 Write-Host "Archivos:  $destino"
 Write-Host "Logs:      $datos\servidor.log"
 Write-Host ""
-Write-Host "Use este token al instalar agentes:"
-Write-Host "  .\instalar-agente.ps1 -Token $token"
+Write-Host "Para iniciar el servidor manualmente (consola visible):" -ForegroundColor Cyan
+Write-Host "  $destino\iniciar-servidor.ps1"
+Write-Host ""
+Write-Host "Los instaladores de agente usan el mismo token del repositorio por defecto."
