@@ -6,11 +6,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import ssl
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from comun import protocolo
 from servidor.estado import EstadoServidor
+
+if TYPE_CHECKING:
+    from servidor.respaldo import EnviadorRespaldo
 
 registrador = logging.getLogger("servidor.servidor")
 
@@ -38,6 +42,7 @@ class Servidor:
         timeout_hola: float = TIMEOUT_HOLA,
         timeout_desconexion: float = protocolo.TIMEOUT_DESCONEXION,
         habilitar_temporizador: bool = True,
+        ssl_context: ssl.SSLContext | None = None,
     ) -> None:
         self.estado = estado
         self.token = token
@@ -48,6 +53,7 @@ class Servidor:
         self.timeout_hola = timeout_hola
         self.timeout_desconexion = timeout_desconexion
         self.habilitar_temporizador = habilitar_temporizador
+        self.ssl_context = ssl_context
         self._servidor: asyncio.AbstractServer | None = None
         self._tarea_sesiones: asyncio.Task | None = None
 
@@ -57,6 +63,7 @@ class Servidor:
             host=self.host,
             port=self.puerto,
             limit=protocolo.TAMANO_MAXIMO_MENSAJE,
+            ssl=self.ssl_context,
         )
         direcciones = ", ".join(str(s.getsockname()) for s in self._servidor.sockets or ())
         registrador.info("escuchando agentes en %s", direcciones)
@@ -155,6 +162,9 @@ class Servidor:
         nivel: str = "info",
         titulo: str = "Cibercafé",
         pedir_visto: bool = True,
+        usar_respaldo: bool = False,
+        enviador_respaldo: EnviadorRespaldo | None = None,
+        equipos_ad: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Envía un mensaje emergente a uno o varios equipos.
 
@@ -175,7 +185,7 @@ class Servidor:
             nombres = [d.strip().lower() for d in destinos if d.strip()]
 
         if not nombres:
-            return {"enviados": 0, "equipos": [], "id": None}
+            return {"enviados": 0, "equipos": [], "id": None, "respaldo": []}
 
         id_mensaje = str(uuid.uuid4())
         mensaje = {
@@ -195,6 +205,27 @@ class Servidor:
         for nombre in equipos_alcanzados:
             self.estado.registrar_mensaje_enviado(nombre, id_mensaje)
 
+        resultados_respaldo: list[dict[str, Any]] = []
+        if usar_respaldo and enviador_respaldo is not None and enviador_respaldo.habilitado:
+            so_por_nombre = {
+                str(item.get("nombre", "")).strip().lower(): item.get("so", "desconocido")
+                for item in (equipos_ad or [])
+            }
+            for nombre in nombres:
+                if nombre in equipos_alcanzados:
+                    continue
+                equipo = self.estado.equipos.get(nombre)
+                so = equipo.so if equipo is not None else so_por_nombre.get(nombre, "desconocido")
+                resultado = await asyncio.to_thread(enviador_respaldo.enviar, nombre, texto, so)
+                resultados_respaldo.append(resultado)
+                if resultado.get("ok"):
+                    self.estado.registrar_evento(
+                        "mensaje_respaldo",
+                        equipo=nombre,
+                        metodo=resultado.get("metodo"),
+                        texto=texto,
+                    )
+
         registrador.info(
             "mensaje '%s' enviado a %s equipo(s): %s",
             id_mensaje,
@@ -205,6 +236,7 @@ class Servidor:
             "id": id_mensaje,
             "enviados": len(equipos_alcanzados),
             "equipos": sorted(equipos_alcanzados),
+            "respaldo": resultados_respaldo,
         }
 
     async def _enviar(self, escritor: asyncio.StreamWriter, mensaje: dict) -> bool:

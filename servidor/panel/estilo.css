@@ -159,6 +159,39 @@ select:focus {
   margin-bottom: 1rem;
 }
 
+.acciones-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-secundario {
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--texto);
+  text-decoration: none;
+}
+
+.btn-secundario:hover {
+  border-color: var(--acento);
+  background: #eff6ff;
+}
+
+.opcion-respaldo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .seleccionar-todos {
   display: flex;
   align-items: center;
@@ -200,6 +233,17 @@ th {
 
 tr.desconectado {
   opacity: 0.55;
+}
+
+tr.sin-agente {
+  opacity: 0.45;
+  background: #f8fafc;
+  color: var(--texto-suave);
+}
+
+.estado-badge.sin-agente {
+  background: #e2e8f0;
+  color: #64748b;
 }
 
 .icono-so {
