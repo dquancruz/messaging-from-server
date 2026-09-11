@@ -13,6 +13,7 @@ from agente.agente import manejar_mensaje_servidor
 from agente.chat_util import (
     MARCA_ENVIANDO,
     confirmar_mensaje_en_historial,
+    fusionar_historial_con_pendientes,
     revertir_pendiente_en_historial,
 )
 from comun import protocolo
@@ -114,7 +115,7 @@ class PruebasChatUtil(unittest.TestCase):
             }
         ]
         confirmado = confirmar_mensaje_en_historial(
-            historial, "pc-a", "pc-b", "msg-1", "2026-09-11T12:00:00+00:00"
+            historial, "pc-a", "msg-1", "2026-09-11T12:00:00+00:00"
         )
         self.assertTrue(confirmado)
         self.assertEqual(historial[0]["id"], "msg-1")
@@ -131,6 +132,13 @@ class PruebasChatUtil(unittest.TestCase):
         revertido = revertir_pendiente_en_historial(historial, "pc-a")
         self.assertTrue(revertido)
         self.assertEqual(historial, [])
+
+    def test_fusionar_historial_conserva_pendientes(self):
+        servidor = [{"de": "pc-b", "texto": "hola", "cuando": "2026-09-11T10:00:00+00:00"}]
+        local = [{"de": "pc-a", "texto": "enviando", "cuando": MARCA_ENVIANDO}]
+        fusionado = fusionar_historial_con_pendientes(servidor, local, "pc-a")
+        self.assertEqual(len(fusionado), 2)
+        self.assertEqual(fusionado[-1]["cuando"], MARCA_ENVIANDO)
 
 
 class PruebasManejoMensajesChat(unittest.TestCase):

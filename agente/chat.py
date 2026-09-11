@@ -8,9 +8,9 @@ from tkinter import font as tkfont
 from agente.chat_util import (
     MARCA_ENVIANDO,
     confirmar_mensaje_en_historial,
+    fusionar_historial_con_pendientes,
     revertir_pendiente_en_historial,
 )
-from agente.plataforma import nombre_equipo
 
 LIMITE_TEXTO = 2000
 
@@ -108,6 +108,8 @@ class VentanaChat:
 
     def establecer_habilitado(self, habilitado: bool) -> None:
         self._habilitado = habilitado
+        if habilitado:
+            self._limpiar_error_envio()
         self._actualizar_estado_ui()
 
     def actualizar_equipos(self, equipos: list[dict]) -> None:
@@ -132,7 +134,10 @@ class VentanaChat:
 
     def establecer_historial(self, interlocutor: str, mensajes: list[dict]) -> None:
         clave = interlocutor.strip().lower()
-        self._mensajes_por_interlocutor[clave] = list(mensajes)
+        local = self._mensajes_por_interlocutor.get(clave, [])
+        self._mensajes_por_interlocutor[clave] = fusionar_historial_con_pendientes(
+            mensajes, local, self.nombre_local
+        )
         if self._interlocutor == clave:
             self._mostrar_historial(clave)
 
@@ -141,7 +146,7 @@ class VentanaChat:
         clave = para.strip().lower()
         historial = self._mensajes_por_interlocutor.setdefault(clave, [])
         if not confirmar_mensaje_en_historial(
-            historial, self.nombre_local, clave, id_mensaje, cuando
+            historial, self.nombre_local, id_mensaje, cuando
         ):
             return False
         self._limpiar_error_envio()
