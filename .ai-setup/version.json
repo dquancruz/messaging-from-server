@@ -1,0 +1,48 @@
+{
+  "version": "3.0.0-dev",
+  "aiSetupCommit": "3c5751f1f7a7077e314f5891a3d1e4ef5b2dbfdd",
+  "generatedAt": "2026-09-11T00:31:59.840121+00:00",
+  "managedFiles": {
+    "unconditional": [
+      ".claude/hooks/post-tool-use/lint-after-write.sh",
+      ".claude/hooks/pre-tool-use/block-secrets.sh",
+      ".claude/rules/backend.md",
+      ".claude/rules/design.md",
+      ".claude/rules/frontend.md",
+      ".claude/rules/security.md",
+      ".claude/rules/testing.md",
+      ".cursor/hooks.json",
+      ".cursor/hooks/_bridge.sh",
+      ".cursor/mcp.json",
+      ".cursor/rules/backend.mdc",
+      ".cursor/rules/design.mdc",
+      ".cursor/rules/frontend.mdc",
+      ".cursor/rules/security.mdc",
+      ".cursor/rules/testing.mdc",
+      ".githooks/post-merge",
+      ".githooks/pre-commit",
+      ".githooks/pre-push",
+      ".githooks/prepare-commit-msg",
+      ".github/copilot-instructions.md",
+      ".github/workflows/on-merge.yml",
+      ".github/workflows/pr-validation.yml",
+      "CLAUDE.md",
+      "GEMINI.md",
+      "scripts/auto-commit.js",
+      "scripts/auto-jira.js",
+      "scripts/auto-pr.js",
+      "scripts/dashboard.js"
+    ],
+    "onceIfMissing": [
+      ".claude/settings.json",
+      ".env.local",
+      ".local-docs/README.md",
+      ".local-docs/architecture.md",
+      ".local-docs/decisions.md",
+      ".local-docs/plan.md",
+      ".local-docs/security-gaps.md",
+      ".mcp.json",
+      "AGENTS.md"
+    ]
+  }
+}

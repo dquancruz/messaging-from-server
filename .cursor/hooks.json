@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "bash .cursor/hooks/_bridge.sh .claude/hooks/pre-tool-use/block-secrets.sh",
+        "matcher": "Write|Read",
+        "failClosed": true
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "bash .cursor/hooks/_bridge.sh .claude/hooks/post-tool-use/lint-after-write.sh",
+        "matcher": "Write",
+        "failClosed": false
+      }
+    ]
+  }
+}

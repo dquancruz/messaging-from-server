@@ -1,0 +1,6 @@
+
+# Claude automation secrets
+.env.local
+
+# Local-only human-context docs (never pushed)
+.local-docs/
