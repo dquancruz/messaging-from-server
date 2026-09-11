@@ -7,6 +7,10 @@
 ### Security
 ### Deprecated
 
+## [0.5.2] - 2026-09-11
+### Fixed
+- conservar selección de interlocutor al actualizar lista ([#16](https://github.com/dquancruz/messaging-from-server/pull/16/dquancruz/messaging-from-server/actions/runs/34659913447))
+
 ## [0.5.1] - 2026-09-11
 ### Fixed
 - conservar selección de equipo y mostrar botón Chat ([#15](https://github.com/dquancruz/messaging-from-server/pull/15/dquancruz/messaging-from-server/actions/runs/34659593787))
