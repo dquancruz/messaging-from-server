@@ -80,6 +80,58 @@ class PruebasCodificarDecodificar(unittest.TestCase):
         with self.assertRaises(protocolo.ErrorProtocolo):
             protocolo.codificar({"tipo": "no-existe"})
 
+    def test_equipo_no_string_es_rechazado(self):
+        # regresión: antes esto pasaba la validación y tumbaba al servidor
+        # con AttributeError al hacer hola["equipo"].strip()
+        hola = {
+            "tipo": "hola",
+            "token": "t",
+            "equipo": 123,
+            "so": "linux",
+            "version_so": "1",
+            "usuario": "u",
+            "version_agente": "1",
+        }
+        with self.assertRaises(protocolo.ErrorProtocolo):
+            protocolo.decodificar_linea(json.dumps(hola))
+
+    def test_so_invalido_es_rechazado(self):
+        hola = {
+            "tipo": "hola",
+            "token": "t",
+            "equipo": "PC-01",
+            "so": "solaris",
+            "version_so": "1",
+            "usuario": "u",
+            "version_agente": "1",
+        }
+        with self.assertRaises(protocolo.ErrorProtocolo):
+            protocolo.decodificar_linea(json.dumps(hola))
+
+    def test_nivel_invalido_es_rechazado(self):
+        mensaje = {
+            "tipo": "mensaje",
+            "id": "x",
+            "titulo": "t",
+            "texto": "hola",
+            "nivel": "urgente",
+            "pedir_visto": False,
+        }
+        with self.assertRaises(protocolo.ErrorProtocolo):
+            protocolo.codificar(mensaje)
+
+    def test_tipo_no_permitido_por_direccion(self):
+        # 'bienvenido' es servidor->agente; un agente no debería poder
+        # mandarlo
+        bienvenido = {"tipo": "bienvenido", "sesion": None, "bloqueado": False}
+        # sin restricción de dirección, es válido
+        protocolo.decodificar_linea(json.dumps(bienvenido))
+        # restringido a lo que puede mandar un agente, se rechaza
+        with self.assertRaises(protocolo.ErrorProtocolo):
+            protocolo.decodificar_linea(
+                json.dumps(bienvenido), protocolo.TIPOS_AGENTE_SERVIDOR
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -47,7 +47,7 @@ async def _conectar_una_vez(nombre: str, so: str, host: str, puerto: int, token:
         if not linea:
             raise ConnectionError("el servidor cerró la conexión al saludar")
 
-        bienvenida = protocolo.decodificar_linea(linea)
+        bienvenida = protocolo.decodificar_linea(linea, protocolo.TIPOS_SERVIDOR_AGENTE)
         if bienvenida["tipo"] == "rechazado":
             registrador.error("%s: rechazado por el servidor (%s)", etiqueta, bienvenida["motivo"])
             return
@@ -99,7 +99,7 @@ async def _leer_mensajes(
             raise ConnectionError("el servidor cerró la conexión")
 
         try:
-            mensaje = protocolo.decodificar_linea(linea)
+            mensaje = protocolo.decodificar_linea(linea, protocolo.TIPOS_SERVIDOR_AGENTE)
         except protocolo.ErrorProtocolo as exc:
             registrador.warning("%s: mensaje inválido del servidor: %s", etiqueta, exc)
             continue

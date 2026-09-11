@@ -20,9 +20,23 @@ from servidor.servidor import Servidor
 RUTA_CONFIG_POR_DEFECTO = Path(__file__).parent / "config.json"
 
 
+class ErrorConfiguracion(Exception):
+    """La configuración no se pudo leer o le falta un campo requerido."""
+
+
 def cargar_config(ruta: Path) -> dict:
-    with ruta.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with ruta.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+    except OSError as exc:
+        raise ErrorConfiguracion(f"no se pudo leer '{ruta}': {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ErrorConfiguracion(f"'{ruta}' no es JSON válido: {exc}") from exc
+
+    if "token" not in config:
+        raise ErrorConfiguracion(f"a '{ruta}' le falta el campo requerido 'token'")
+
+    return config
 
 
 def configurar_logs(directorio: Path) -> None:
@@ -61,14 +75,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    config = cargar_config(args.config)
-    configurar_logs(args.datos)
+    try:
+        config = cargar_config(args.config)
+    except ErrorConfiguracion as exc:
+        print(f"Error de configuración: {exc}", file=sys.stderr)
+        return 1
 
-    logging.getLogger("servidor").info("iniciando servidor (config=%s)", args.config)
+    configurar_logs(args.datos)
+    logger = logging.getLogger("servidor")
+    logger.info("iniciando servidor (config=%s)", args.config)
     try:
         asyncio.run(ejecutar(config, args.datos))
     except KeyboardInterrupt:
-        logging.getLogger("servidor").info("servidor detenido por el usuario")
+        logger.info("servidor detenido por el usuario")
+    except OSError as exc:
+        # p. ej. el puerto ya está en uso
+        logger.error("no se pudo iniciar el servidor: %s", exc)
+        return 1
     return 0
 
 

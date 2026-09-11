@@ -124,6 +124,46 @@ class PruebasServidor(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.6)
         self.assertFalse(self.estado.equipos["pc-04"].conectado)
 
+    async def test_linea_demasiado_grande_al_saludar_no_tumba_el_servidor(self):
+        # regresión: el servidor esperaba asyncio.LimitOverrunError, pero
+        # readline() en realidad levanta ValueError -- sin este fix, esto
+        # dejaba una excepción sin atrapar en la tarea de la conexión.
+        lector, escritor = await _conectar(self.servidor_asyncio)
+        self.addCleanup(escritor.close)
+
+        escritor.write(b"x" * (protocolo.TAMANO_MAXIMO_MENSAJE + 100))
+        await escritor.drain()
+
+        # el servidor cierra la conexión en vez de tumbarse
+        resto = await asyncio.wait_for(lector.read(), timeout=2)
+        self.assertEqual(resto, b"")
+        self.assertEqual(self.estado.equipos, {})
+
+        # el servidor sigue vivo: otro agente se puede conectar normal
+        lector2, escritor2 = await _conectar(self.servidor_asyncio)
+        self.addCleanup(escritor2.close)
+        escritor2.write(protocolo.codificar({**HOLA_BASE, "equipo": "PC-07"}))
+        await escritor2.drain()
+        bienvenida = await _leer_mensaje(lector2)
+        self.assertEqual(bienvenida["tipo"], "bienvenido")
+
+    async def test_linea_demasiado_grande_en_bucle_mensajes(self):
+        lector, escritor = await _conectar(self.servidor_asyncio)
+        self.addCleanup(escritor.close)
+
+        escritor.write(protocolo.codificar({**HOLA_BASE, "equipo": "PC-08"}))
+        await escritor.drain()
+        await _leer_mensaje(lector)  # bienvenido
+        await asyncio.sleep(0.05)
+        self.assertTrue(self.estado.equipos["pc-08"].conectado)
+
+        escritor.write(b"x" * (protocolo.TAMANO_MAXIMO_MENSAJE + 100))
+        await escritor.drain()
+
+        resto = await asyncio.wait_for(lector.read(), timeout=2)
+        self.assertEqual(resto, b"")
+        self.assertFalse(self.estado.equipos["pc-08"].conectado)
+
     async def test_desconexion_limpia_al_cerrar_el_cliente(self):
         lector, escritor = await _conectar(self.servidor_asyncio)
 

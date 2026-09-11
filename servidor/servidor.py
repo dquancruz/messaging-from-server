@@ -9,7 +9,6 @@ Fase 4; por ahora ``bienvenido`` siempre manda ``sesion: null`` y
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 
 from comun import protocolo
@@ -19,6 +18,13 @@ registrador = logging.getLogger("servidor.servidor")
 
 # Cuánto se espera el "hola" inicial antes de cerrar la conexión.
 TIMEOUT_HOLA = 10
+
+# Resultado de _leer_linea_con_timeout: la lectura salió bien (linea puede
+# ser b'' si el otro lado cerró la conexión, o sea EOF), expiró el tiempo de
+# espera, o la línea superaba el tamaño máximo permitido.
+_LECTURA_OK = "ok"
+_LECTURA_TIMEOUT = "timeout"
+_LECTURA_DEMASIADO_GRANDE = "demasiado_grande"
 
 
 class Servidor:
@@ -56,10 +62,10 @@ class Servidor:
         return self._servidor
 
     async def detener(self) -> None:
-        if self._servidor is None:
-            return
-        self._servidor.close()
-        await self._servidor.wait_closed()
+        if self._servidor is not None:
+            self._servidor.close()
+            await self._servidor.wait_closed()
+        self.estado.cerrar()
         registrador.info("servidor detenido")
 
     async def _enviar(self, escritor: asyncio.StreamWriter, mensaje: dict) -> bool:
@@ -72,15 +78,37 @@ class Servidor:
             registrador.debug("no se pudo enviar '%s': %s", mensaje.get("tipo"), exc)
             return False
 
+    async def _leer_linea_con_timeout(
+        self, lector: asyncio.StreamReader, timeout: float
+    ) -> tuple[str, bytes | None]:
+        """Lee una línea con un timeout. Devuelve ``(_LECTURA_OK, línea)``
+        -- la línea puede ser ``b''`` si el otro lado cerró la conexión
+        (EOF) --, ``(_LECTURA_TIMEOUT, None)`` si expiró el timeout, o
+        ``(_LECTURA_DEMASIADO_GRANDE, None)`` si la línea supera
+        ``protocolo.TAMANO_MAXIMO_MENSAJE``.
+
+        Nota: pese a lo que dice la documentación de asyncio, ``readline()``
+        no levanta ``asyncio.LimitOverrunError`` cuando se supera el
+        ``limit`` del stream -- la atrapa internamente y la vuelve a
+        levantar como un ``ValueError`` sencillo. Por eso se atrapa
+        ``ValueError`` acá, no ``LimitOverrunError``.
+        """
+        try:
+            linea = await asyncio.wait_for(lector.readline(), timeout=timeout)
+        except asyncio.TimeoutError:
+            return (_LECTURA_TIMEOUT, None)
+        except ValueError:
+            return (_LECTURA_DEMASIADO_GRANDE, None)
+        return (_LECTURA_OK, linea)
+
     async def _recibir_hola(
         self, lector: asyncio.StreamReader, escritor: asyncio.StreamWriter, ip: str
     ) -> dict | None:
-        try:
-            linea = await asyncio.wait_for(lector.readline(), timeout=self.timeout_hola)
-        except asyncio.TimeoutError:
+        estado_lectura, linea = await self._leer_linea_con_timeout(lector, self.timeout_hola)
+        if estado_lectura == _LECTURA_TIMEOUT:
             registrador.warning("%s no mandó 'hola' a tiempo", ip)
             return None
-        except asyncio.LimitOverrunError:
+        if estado_lectura == _LECTURA_DEMASIADO_GRANDE:
             registrador.warning("%s mandó una línea demasiado grande antes de saludar", ip)
             return None
 
@@ -88,7 +116,7 @@ class Servidor:
             return None  # se desconectó antes de saludar
 
         try:
-            mensaje = protocolo.decodificar_linea(linea)
+            mensaje = protocolo.decodificar_linea(linea, protocolo.TIPOS_AGENTE_SERVIDOR)
         except protocolo.ErrorProtocolo as exc:
             registrador.warning("saludo inválido de %s: %s", ip, exc)
             return None
@@ -113,14 +141,15 @@ class Servidor:
         id_conexion: int,
     ) -> None:
         while True:
-            try:
-                linea = await asyncio.wait_for(lector.readline(), timeout=self.timeout_desconexion)
-            except asyncio.TimeoutError:
+            estado_lectura, linea = await self._leer_linea_con_timeout(
+                lector, self.timeout_desconexion
+            )
+            if estado_lectura == _LECTURA_TIMEOUT:
                 registrador.info(
                     "'%s' sin latido en %ss, se da por desconectado", nombre_equipo, self.timeout_desconexion
                 )
                 return
-            except asyncio.LimitOverrunError:
+            if estado_lectura == _LECTURA_DEMASIADO_GRANDE:
                 registrador.warning(
                     "'%s' mandó una línea demasiado grande, se cierra la conexión", nombre_equipo
                 )
@@ -131,7 +160,7 @@ class Servidor:
                 return
 
             try:
-                mensaje = protocolo.decodificar_linea(linea)
+                mensaje = protocolo.decodificar_linea(linea, protocolo.TIPOS_AGENTE_SERVIDOR)
             except protocolo.ErrorProtocolo as exc:
                 registrador.warning("mensaje inválido de '%s': %s", nombre_equipo, exc)
                 continue
@@ -188,5 +217,9 @@ class Servidor:
             if nombre_equipo is not None and id_conexion is not None:
                 self.estado.quitar_conexion(nombre_equipo, id_conexion)
             escritor.close()
-            with contextlib.suppress(Exception):
+            try:
                 await escritor.wait_closed()
+            except Exception as exc:  # noqa: BLE001 - solo se quiere loguear y seguir
+                registrador.debug(
+                    "error al cerrar la conexión de %s: %s", nombre_equipo or ip, exc
+                )
