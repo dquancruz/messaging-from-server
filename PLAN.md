@@ -10,7 +10,7 @@
 - [x] Fase 5 — Instaladores por sistema operativo
 - [x] Fase 6 — Pruebas en la red real
 - [x] Fase 7 — Extras (opcionales)
-- [ ] Fase 8 — Chat 1:1 entre clientes
+- [x] Fase 8 — Chat 1:1 entre clientes
 
 ---
 

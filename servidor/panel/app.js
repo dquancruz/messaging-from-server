@@ -15,6 +15,7 @@
   var campoNivel = document.getElementById("nivel");
   var estadoEnvio = document.getElementById("estado-envio");
   var usarRespaldo = document.getElementById("usar-respaldo");
+  var chatHabilitado = document.getElementById("chat-habilitado");
   var equiposActuales = [];
 
   function formatearHora(iso) {
@@ -356,6 +357,41 @@
     enviarMensaje(seleccionados, campoTexto.value.trim(), campoNivel.value);
   });
 
+  function actualizarEstadoChat() {
+    fetch("/api/chat/estado")
+      .then(function (resp) { return resp.json(); })
+      .then(function (datos) {
+        chatHabilitado.checked = !!datos.habilitado;
+      })
+      .catch(function () {
+        /* ignorar si el servidor aún no tiene chat */
+      });
+  }
+
+  chatHabilitado.addEventListener("change", function () {
+    var deseado = chatHabilitado.checked;
+    fetch("/api/chat/habilitar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ habilitado: deseado })
+    })
+      .then(function (resp) {
+        return resp.json().then(function (datos) {
+          if (!resp.ok) {
+            throw new Error(datos.error || "Error al cambiar el chat");
+          }
+          return datos;
+        });
+      })
+      .then(function (datos) {
+        chatHabilitado.checked = !!datos.habilitado;
+      })
+      .catch(function () {
+        chatHabilitado.checked = !deseado;
+      });
+  });
+
   actualizarEquipos();
+  actualizarEstadoChat();
   setInterval(actualizarEquipos, INTERVALO_MS);
 })();

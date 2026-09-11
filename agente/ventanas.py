@@ -8,6 +8,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 from typing import Callable
 
+from agente.chat import VentanaChat, crear_acceso_chat
 from agente.plataforma import bloquear_sistema_nativo, nombre_equipo
 
 registrador = logging.getLogger("agente.ventanas")
@@ -52,6 +53,10 @@ class GestorVentanas:
         self._bloqueo: tk.Toplevel | None = None
         self._texto_bloqueo = "Tu tiempo terminó, pasa a caja."
         self._restante_sesion: int | None = None
+        self._chat = VentanaChat(root, cola_red, nombre_equipo())
+        self._boton_chat = crear_acceso_chat(root, self._chat.abrir)
+        self._posicionar_boton_chat()
+        self.root.bind("<Control-Shift-C>", lambda _e: self._chat.abrir())
         self._programar_revision_cola()
 
     def _programar_revision_cola(self) -> None:
@@ -79,6 +84,27 @@ class GestorVentanas:
             self._mostrar_bloqueo()
         elif tipo == "desbloquear":
             self._ocultar_bloqueo()
+        elif tipo == "chat_estado":
+            self._chat.establecer_habilitado(bool(evento.get("habilitado")))
+        elif tipo == "chat_lista":
+            self._chat.actualizar_equipos(evento.get("equipos", []))
+        elif tipo == "chat_recibido":
+            self._chat.agregar_mensaje(evento.get("mensaje", {}), propio=False)
+        elif tipo == "chat_enviado":
+            self._chat.confirmar_mensaje(
+                str(evento.get("para", "")),
+                str(evento.get("id", "")),
+                str(evento.get("cuando", "")),
+            )
+        elif tipo == "chat_rechazado":
+            motivo = str(evento.get("motivo", "No se pudo enviar el mensaje."))
+            registrador.warning("chat rechazado: %s", motivo)
+            self._chat.revertir_pendiente(motivo)
+        elif tipo == "chat_historial_respuesta":
+            self._chat.establecer_historial(
+                str(evento.get("con", "")),
+                evento.get("mensajes", []),
+            )
         elif tipo == "cerrar":
             self.root.quit()
 
@@ -119,6 +145,13 @@ class GestorVentanas:
         self._contador = ventana
         self._etiqueta_contador = etiqueta
         self._posicionar_contador()
+
+    def _posicionar_boton_chat(self) -> None:
+        self._boton_chat.update_idletasks()
+        margen = 16
+        x = margen
+        y = self._boton_chat.winfo_screenheight() - self._boton_chat.winfo_height() - margen - 48
+        self._boton_chat.place(x=x, y=y)
 
     def _posicionar_contador(self) -> None:
         if self._contador is None:

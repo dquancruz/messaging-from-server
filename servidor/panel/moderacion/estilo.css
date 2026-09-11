@@ -1,0 +1,131 @@
+:root {
+  --fondo: #f4f6f9;
+  --tarjeta: #ffffff;
+  --texto: #1a1f2e;
+  --texto-suave: #5a6478;
+  --borde: #d8dee9;
+  --acento: #7c3aed;
+  --sombra: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+header {
+  background: #4c1d95;
+  color: #fff;
+  padding: 1.25rem 2rem;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.subtitulo {
+  margin: 0.25rem 0 0;
+  opacity: 0.85;
+}
+
+.layout-moderacion {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 1.5rem;
+  padding: 1.5rem 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .layout-moderacion {
+    grid-template-columns: 1fr;
+  }
+}
+
+section {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: var(--sombra);
+}
+
+section h2 {
+  margin: 0 0 1rem;
+  font-size: 1.35rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--borde);
+}
+
+th {
+  font-size: 0.95rem;
+  color: var(--texto-suave);
+}
+
+tr.fila-seleccionable {
+  cursor: pointer;
+}
+
+tr.fila-seleccionable:hover {
+  background: #f8fafc;
+}
+
+tr.activa {
+  background: #ede9fe;
+}
+
+.vacio {
+  color: var(--texto-suave);
+  text-align: center;
+}
+
+.etiqueta-conversacion {
+  margin: 0 0 1rem;
+  color: var(--texto-suave);
+}
+
+.lista-mensajes {
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mensaje {
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  background: #fafafa;
+}
+
+.mensaje .meta {
+  font-size: 0.9rem;
+  color: var(--texto-suave);
+  margin-bottom: 0.35rem;
+}
+
+.mensaje .texto {
+  white-space: pre-wrap;
+  word-break: break-word;
+}

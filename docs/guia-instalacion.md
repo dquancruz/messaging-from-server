@@ -185,7 +185,37 @@ reinstalar).
 
 ---
 
-## 6. Solución de problemas rápida
+## 6. Chat entre clientes (Fase 8)
+
+Los usuarios pueden mandarse mensajes de texto 1:1 entre equipos con el
+agente gráfico (botón **Chat** en la esquina inferior izquierda, o atajo
+`Ctrl+Shift+C`).
+
+### Panel de caja
+
+En el panel habitual (`http://localhost:8080`) hay un interruptor **Chat
+entre clientes**. Caja puede activarlo o desactivarlo; **no puede leer el
+contenido** de las conversaciones.
+
+### Moderación
+
+Para leer conversaciones, abra `http://localhost:8080/moderacion/` con la
+cuenta de moderador definida en `servidor/config.json`:
+
+- `usuario_moderador` (por defecto: `moderador`)
+- `password_moderador` (contraseña distinta a `password_panel`)
+
+El instalador del servidor genera una contraseña aleatoria para el
+moderador y la muestra en pantalla junto con el token de agentes.
+
+### Debian sin escritorio
+
+El modo consola (`wall`) no incluye chat 1:1; solo el agente con interfaz
+gráfica (tkinter) puede chatear.
+
+---
+
+## 7. Solución de problemas rápida
 
 | Problema | Qué revisar |
 |---|---|
@@ -197,7 +227,7 @@ reinstalar).
 
 ---
 
-## 7. Desarrollo local (sin instaladores)
+## 8. Desarrollo local (sin instaladores)
 
 Para probar en su máquina sin instalar:
 

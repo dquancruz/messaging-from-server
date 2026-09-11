@@ -17,6 +17,7 @@ from pathlib import Path
 from comun import protocolo
 from comun.tls import crear_contexto_servidor
 from servidor.ad import ConsultorAD
+from servidor.chat import GestorChat
 from servidor.estado import EstadoServidor
 from servidor.panel_http import PanelHTTP
 from servidor.respaldo import EnviadorRespaldo
@@ -75,6 +76,11 @@ async def ejecutar(config: dict, directorio_datos: Path) -> None:
         avisos_minutos=config.get("avisos_minutos"),
         texto_fin_sesion=config.get("texto_fin_sesion", "Tu tiempo terminó, pasa a caja."),
     )
+    gestor_chat = GestorChat(
+        archivo_chat=directorio_datos / "chat.jsonl",
+        limite_por_conversacion=int(config.get("chat_limite_por_conversacion", 500)),
+        habilitado=bool(config.get("chat_habilitado", True)),
+    )
     ssl_context = _crear_ssl_context(config)
     servidor = Servidor(
         estado=estado,
@@ -82,6 +88,7 @@ async def ejecutar(config: dict, directorio_datos: Path) -> None:
         host=config.get("host_agentes", "0.0.0.0"),
         puerto=config.get("puerto_agentes", protocolo.PUERTO_AGENTES_POR_DEFECTO),
         ssl_context=ssl_context,
+        gestor_chat=gestor_chat,
     )
     servidor_asyncio = await servidor.iniciar()
 
@@ -115,6 +122,8 @@ async def ejecutar(config: dict, directorio_datos: Path) -> None:
         password=password_panel,
         consultor_ad=consultor_ad,
         enviador_respaldo=enviador_respaldo,
+        usuario_moderador=config.get("usuario_moderador", "moderador"),
+        password_moderador=config.get("password_moderador"),
     )
     panel.iniciar()
 

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moderación de chat — Ciber Mensajería</title>
+  <link rel="stylesheet" href="/moderacion/estilo.css">
+</head>
+<body>
+  <header>
+    <h1>Moderación de chat</h1>
+    <p class="subtitulo">Solo lectura — lab.lan</p>
+  </header>
+
+  <main class="layout-moderacion">
+    <section class="lista-conversaciones" aria-labelledby="titulo-conversaciones">
+      <h2 id="titulo-conversaciones">Conversaciones</h2>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Equipos</th>
+            <th scope="col">Mensajes</th>
+            <th scope="col">Último</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-conversaciones">
+          <tr>
+            <td colspan="3" class="vacio">Cargando…</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="detalle-mensajes" aria-labelledby="titulo-mensajes">
+      <h2 id="titulo-mensajes">Mensajes</h2>
+      <p id="etiqueta-conversacion" class="etiqueta-conversacion">Selecciona una conversación</p>
+      <div id="lista-mensajes" class="lista-mensajes">
+        <p class="vacio">Sin mensajes seleccionados</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/moderacion/app.js"></script>
+</body>
+</html>

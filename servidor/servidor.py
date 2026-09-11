@@ -11,6 +11,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from comun import protocolo
+from servidor.chat import GestorChat
 from servidor.estado import EstadoServidor
 
 if TYPE_CHECKING:
@@ -43,8 +44,10 @@ class Servidor:
         timeout_desconexion: float = protocolo.TIMEOUT_DESCONEXION,
         habilitar_temporizador: bool = True,
         ssl_context: ssl.SSLContext | None = None,
+        gestor_chat: GestorChat | None = None,
     ) -> None:
         self.estado = estado
+        self.gestor_chat = gestor_chat
         self.token = token
         self.host = host
         self.puerto = puerto
@@ -83,6 +86,8 @@ class Servidor:
             self._servidor.close()
             await self._servidor.wait_closed()
         self.estado.cerrar()
+        if self.gestor_chat is not None:
+            self.gestor_chat.cerrar()
         registrador.info("servidor detenido")
 
     async def _bucle_sesiones(self) -> None:
@@ -109,6 +114,162 @@ class Servidor:
             if await self._enviar(escritor, mensaje):
                 enviados += 1
         return enviados
+
+    async def _enviar_a_todos(self, mensaje: dict) -> None:
+        for nombre in sorted(self.estado.equipos.keys()):
+            if self.estado.equipos[nombre].conectado:
+                await self._enviar_a_equipo(nombre, mensaje)
+
+    def _lista_equipos_chat(self, excluir: str | None = None) -> list[dict[str, Any]]:
+        excluido = excluir.strip().lower() if excluir else None
+        equipos: list[dict[str, Any]] = []
+        for equipo in sorted(self.estado.equipos.values(), key=lambda e: e.nombre):
+            if excluido and equipo.nombre == excluido:
+                continue
+            usuarios = equipo.usuarios()
+            equipos.append(
+                {
+                    "nombre": equipo.nombre,
+                    "usuario": usuarios[0] if usuarios else "",
+                    "conectado": equipo.conectado,
+                }
+            )
+        return equipos
+
+    async def _sincronizar_chat_agente(
+        self, escritor: asyncio.StreamWriter, nombre_equipo: str
+    ) -> None:
+        if self.gestor_chat is None:
+            return
+        await self._enviar(
+            escritor,
+            {"tipo": "chat_estado", "habilitado": self.gestor_chat.habilitado},
+        )
+        await self._enviar(
+            escritor,
+            {
+                "tipo": "chat_lista",
+                "equipos": self._lista_equipos_chat(excluir=nombre_equipo),
+            },
+        )
+
+    async def _difundir_lista_chat(self) -> None:
+        if self.gestor_chat is None:
+            return
+        for nombre, escritor in self.estado.escritores_de(
+            sorted(self.estado.equipos.keys())
+        ):
+            await self._enviar(
+                escritor,
+                {
+                    "tipo": "chat_lista",
+                    "equipos": self._lista_equipos_chat(excluir=nombre),
+                },
+            )
+
+    async def cambiar_chat_habilitado(self, habilitado: bool) -> dict[str, bool]:
+        if self.gestor_chat is None:
+            raise ValueError("el chat no está configurado en este servidor")
+        cambio = self.gestor_chat.establecer_habilitado(habilitado)
+        if cambio:
+            self.estado.registrar_evento(
+                "chat_habilitado_cambiado",
+                habilitado=habilitado,
+            )
+            await self._enviar_a_todos(
+                {"tipo": "chat_estado", "habilitado": self.gestor_chat.habilitado}
+            )
+        return {"habilitado": self.gestor_chat.habilitado}
+
+    async def _manejar_chat_enviar(
+        self,
+        escritor: asyncio.StreamWriter,
+        nombre_equipo: str,
+        mensaje: dict,
+        usuario: str,
+    ) -> None:
+        if self.gestor_chat is None:
+            return
+        destino = mensaje["destino"].strip().lower()
+        texto = mensaje["texto"]
+
+        if not self.gestor_chat.habilitado:
+            await self._enviar(
+                escritor,
+                {"tipo": "chat_rechazado", "motivo": "el chat está desactivado por caja"},
+            )
+            return
+
+        if destino == nombre_equipo:
+            await self._enviar(
+                escritor,
+                {"tipo": "chat_rechazado", "motivo": "no puedes enviarte mensajes a ti mismo"},
+            )
+            return
+
+        equipo_destino = self.estado.equipos.get(destino)
+        if equipo_destino is None or not equipo_destino.conectado:
+            await self._enviar(
+                escritor,
+                {"tipo": "chat_rechazado", "motivo": "el destino no está conectado"},
+            )
+            return
+
+        registro = self.gestor_chat.registrar_mensaje(
+            de=nombre_equipo,
+            de_usuario=usuario,
+            para=destino,
+            texto=texto,
+        )
+        self.estado.registrar_evento(
+            "chat_mensaje_enviado",
+            de=nombre_equipo,
+            para=destino,
+            id_mensaje=registro.id,
+        )
+
+        await self._enviar(
+            escritor,
+            {
+                "tipo": "chat_enviado",
+                "id": registro.id,
+                "para": destino,
+                "cuando": registro.cuando,
+            },
+        )
+        await self._enviar_a_equipo(
+            destino,
+            {
+                "tipo": "chat_recibido",
+                "id": registro.id,
+                "de": nombre_equipo,
+                "de_usuario": usuario,
+                "texto": texto,
+                "cuando": registro.cuando,
+            },
+        )
+
+    async def _manejar_chat_historial(
+        self,
+        escritor: asyncio.StreamWriter,
+        nombre_equipo: str,
+        mensaje: dict,
+    ) -> None:
+        if self.gestor_chat is None:
+            return
+        con = mensaje["con"].strip().lower()
+        ultimos = mensaje.get("ultimos", 50)
+        if not isinstance(ultimos, int) or isinstance(ultimos, bool) or ultimos <= 0:
+            ultimos = 50
+        historial = self.gestor_chat.historial(nombre_equipo, con, ultimos)
+        await self._enviar(
+            escritor,
+            {
+                "tipo": "chat_historial_respuesta",
+                "con": con,
+                "mensajes": historial,
+            },
+        )
 
     async def iniciar_sesion(self, equipo: str, minutos: int) -> dict[str, Any]:
         if minutos <= 0:
@@ -310,6 +471,7 @@ class Servidor:
         escritor: asyncio.StreamWriter,
         nombre_equipo: str,
         id_conexion: int,
+        usuario: str,
     ) -> None:
         while True:
             estado_lectura, linea = await self._leer_linea_con_timeout(
@@ -344,6 +506,12 @@ class Servidor:
                 self.estado.registrar_latido(nombre_equipo, id_conexion)
                 self.estado.registrar_visto(nombre_equipo, mensaje["id"])
                 registrador.info("'%s' confirmó visto de %s", nombre_equipo, mensaje["id"])
+            elif tipo == "chat_enviar":
+                self.estado.registrar_latido(nombre_equipo, id_conexion)
+                await self._manejar_chat_enviar(escritor, nombre_equipo, mensaje, usuario)
+            elif tipo == "chat_historial":
+                self.estado.registrar_latido(nombre_equipo, id_conexion)
+                await self._manejar_chat_historial(escritor, nombre_equipo, mensaje)
             else:
                 registrador.warning(
                     "'%s' mandó un tipo inesperado para un agente: '%s'", nombre_equipo, tipo
@@ -395,10 +563,16 @@ class Servidor:
                     },
                 )
 
-            await self._bucle_mensajes(lector, escritor, nombre_equipo, id_conexion)
+            await self._sincronizar_chat_agente(escritor, nombre_equipo)
+            await self._difundir_lista_chat()
+
+            await self._bucle_mensajes(
+                lector, escritor, nombre_equipo, id_conexion, hola["usuario"]
+            )
         finally:
             if nombre_equipo is not None and id_conexion is not None:
                 self.estado.quitar_conexion(nombre_equipo, id_conexion)
+                await self._difundir_lista_chat()
             escritor.close()
             try:
                 await escritor.wait_closed()

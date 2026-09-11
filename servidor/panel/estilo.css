@@ -34,6 +34,29 @@ header {
   padding: 1.25rem 2rem;
 }
 
+.cabecera-principal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.interruptor-chat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.interruptor-chat input {
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+}
+
 header h1 {
   margin: 0;
   font-size: 2rem;
