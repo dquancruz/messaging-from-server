@@ -9,6 +9,7 @@ from agente.chat_util import (
     MARCA_ENVIANDO,
     confirmar_mensaje_en_historial,
     fusionar_historial_con_pendientes,
+    indice_interlocutor,
     revertir_pendiente_en_historial,
 )
 
@@ -180,6 +181,11 @@ class VentanaChat:
             if not equipo.get("conectado", False):
                 etiqueta += " [desconectado]"
             self._lista_equipos.insert(tk.END, etiqueta)
+
+        indice = indice_interlocutor(self._equipos, self._interlocutor)
+        if indice is not None:
+            self._lista_equipos.selection_set(indice)
+            self._lista_equipos.see(indice)
 
     def _al_seleccionar_equipo(self, _evento: object) -> None:
         if self._lista_equipos is None:

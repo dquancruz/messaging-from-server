@@ -35,6 +35,17 @@ def revertir_pendiente_en_historial(
     return False
 
 
+def indice_interlocutor(equipos: list[dict], interlocutor: str | None) -> int | None:
+    """Devuelve el índice del interlocutor en la lista de equipos, o None."""
+    if not interlocutor:
+        return None
+    clave = interlocutor.strip().lower()
+    for indice, equipo in enumerate(equipos):
+        if str(equipo.get("nombre", "")).strip().lower() == clave:
+            return indice
+    return None
+
+
 def fusionar_historial_con_pendientes(
     historial_servidor: list[dict],
     historial_local: list[dict],
