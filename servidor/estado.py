@@ -44,21 +44,44 @@ class Equipo:
     version_so: str
     version_agente: str
     conexiones: dict[int, Conexion] = field(default_factory=dict)
+    # Último mensaje enviado desde el panel y cuándo el usuario confirmó
+    # "Entendido". La Fase 4 agrega sesión y bloqueo.
+    ultimo_mensaje_id: str | None = None
+    ultimo_visto: str | None = None
 
     @property
     def conectado(self) -> bool:
         return bool(self.conexiones)
 
+    def ips(self) -> list[str]:
+        return sorted({c.ip for c in self.conexiones.values()})
+
+    def usuarios(self) -> list[str]:
+        return sorted(c.usuario for c in self.conexiones.values())
+
     def a_dict(self) -> dict[str, Any]:
-        usuarios = sorted(c.usuario for c in self.conexiones.values())
         return {
             "nombre": self.nombre,
             "so": self.so,
             "version_so": self.version_so,
             "version_agente": self.version_agente,
             "conectado": self.conectado,
-            "usuarios": usuarios,
+            "usuarios": self.usuarios(),
             "conexiones_activas": len(self.conexiones),
+        }
+
+    def a_dict_api(self) -> dict[str, Any]:
+        """Vista para el panel web: incluye IP, visto y campos de sesión."""
+        return {
+            "nombre": self.nombre,
+            "so": self.so,
+            "conectado": self.conectado,
+            "usuarios": self.usuarios(),
+            "ip": ", ".join(self.ips()) if self.ips() else "",
+            "tiempo_restante": None,
+            "bloqueado": False,
+            "ultimo_mensaje_id": self.ultimo_mensaje_id,
+            "ultimo_visto": self.ultimo_visto,
         }
 
 
@@ -207,3 +230,40 @@ class EstadoServidor:
 
     def obtener_equipos(self) -> list[dict[str, Any]]:
         return [e.a_dict() for e in sorted(self.equipos.values(), key=lambda e: e.nombre)]
+
+    def obtener_equipos_api(self) -> list[dict[str, Any]]:
+        return [e.a_dict_api() for e in sorted(self.equipos.values(), key=lambda e: e.nombre)]
+
+    def registrar_mensaje_enviado(self, equipo: str, id_mensaje: str) -> None:
+        """Marca que se envió un mensaje al equipo y espera confirmación."""
+        eq = self.equipos.get(equipo)
+        if eq is None:
+            return
+        eq.ultimo_mensaje_id = id_mensaje
+        eq.ultimo_visto = None
+        self.registrar_evento(
+            "mensaje_enviado",
+            equipo=equipo,
+            id_mensaje=id_mensaje,
+        )
+
+    def registrar_visto(self, equipo: str, id_mensaje: str) -> None:
+        """Registra que el usuario confirmó un mensaje."""
+        eq = self.equipos.get(equipo)
+        if eq is None:
+            return
+        if eq.ultimo_mensaje_id == id_mensaje:
+            eq.ultimo_visto = _ahora()
+        self.registrar_evento("visto", equipo=equipo, id_mensaje=id_mensaje)
+
+    def escritores_de(self, nombres: list[str]) -> list[tuple[str, asyncio.StreamWriter]]:
+        """Devuelve (equipo, escritor) de todas las conexiones activas de los
+        equipos indicados."""
+        resultado: list[tuple[str, asyncio.StreamWriter]] = []
+        for nombre in nombres:
+            equipo = self.equipos.get(nombre)
+            if equipo is None:
+                continue
+            for conexion in equipo.conexiones.values():
+                resultado.append((nombre, conexion.escritor))
+        return resultado
