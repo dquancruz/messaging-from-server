@@ -1,0 +1,52 @@
+#!/bin/sh
+
+# Pre-commit validation
+# - Run tests (python -m unittest, per this project's real stack)
+# - Check for secrets
+#
+# Native git hook (Fase 4.1, update-plan-aug-2026.md — retired Husky, see
+# docs/archive/husky/NOTE.md). Installed via `git config core.hooksPath
+# .githooks`, so it needs no npm install to be wired up.
+#
+# This repo is Python stdlib only (servidor + agente, ver AGENTS.md), no
+# npm/eslint/tsc involved — adapted from the generic Node template.
+
+set -e
+
+echo "🔍 Pre-commit validation starting..."
+
+# 1. Run tests (only once tests/ has actual test files)
+if ls tests/test_*.py >/dev/null 2>&1; then
+  echo "  Running tests..."
+  python3 -m unittest discover -s tests -v || {
+    echo "  ❌ Tests failed"
+    exit 1
+  }
+  echo "  ✅ Tests passed"
+else
+  echo "  ⏭  No tests yet in tests/, skipping"
+fi
+
+# 2. Check for secrets
+#
+# The plain keyword grep this started with (Fase 4.1) flagged every
+# mention of the *name* GITHUB_TOKEN/API_KEY/SECRET/PASSWORD, including
+# harmless ${VAR} references, process.env.X reads, and the detector
+# regexes below — all noise, no actual value. This only flags an
+# assignment-shaped line (KEY = "value") whose value isn't itself a
+# variable reference (${...}, process.env..., secrets....), a regex
+# literal, or empty.
+echo "  Checking for secrets..."
+suspects=$(git diff --cached -U0 -- . ':!.githooks/pre-commit' \
+  | grep -E '^\+' | grep -Ev '^\+\+\+' \
+  | grep -Eiv '\$\{|process\.env\.|secrets\.|/[iI]?,?[[:space:]]*$' \
+  | grep -E '(GITHUB_TOKEN|API_KEY|SECRET|PASSWORD)[^=:]{0,20}[:=][[:space:]]*["'"'"']?[A-Za-z0-9_/.+-]{12,}' || true)
+if [ -n "$suspects" ]; then
+  echo "  ❌ Potential secrets detected"
+  echo "$suspects"
+  exit 1
+fi
+echo "  ✅ No secrets found"
+
+echo "✅ Pre-commit validation passed"
+exit 0
