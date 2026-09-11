@@ -7,6 +7,10 @@
 ### Security
 ### Deprecated
 
+## [0.3.1] - 2026-09-11
+### Changed
+- add Phase 8 plan for 1:1 client chat ([#10](https://github.com/dquancruz/messaging-from-server/pull/10/dquancruz/messaging-from-server/actions/runs/34633629742))
+
 ## [0.3.0] - 2026-09-11
 ### Added
 - extras opcionales AD, respaldo, CSV, TLS y GPO ([#9](https://github.com/dquancruz/messaging-from-server/pull/9/dquancruz/messaging-from-server/actions/runs/34627833811))
