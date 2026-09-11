@@ -29,9 +29,16 @@ jobs:
       # Tests
       # ----------------------------------------------------------------
       # Solo biblioteca estandar (sin requirements.txt/pip install), tal
-      # como pide CLAUDE.md para servidor y agente.
+      # como pide CLAUDE.md para servidor y agente. Mismo criterio que
+      # .githooks/pre-commit: si todavia no hay pruebas (fases tempranas
+      # del plan), no falla el check por eso.
       - name: Run tests
-        run: python -m unittest discover -s tests -v
+        run: |
+          if ls tests/test_*.py >/dev/null 2>&1; then
+            python -m unittest discover -s tests -v
+          else
+            echo "No hay pruebas todavia en tests/, se omite."
+          fi
 
   code-review:
     name: Automated Code Review
