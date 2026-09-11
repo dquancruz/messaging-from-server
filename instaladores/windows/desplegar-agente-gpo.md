@@ -22,14 +22,16 @@ Crea `\\dc01.lab.lan\CiberMensajeria$\gpo-iniciar-agente.ps1`:
 
 ```powershell
 # GPO: ejecutar al iniciar sesión cualquier usuario del dominio
-$Token = "PEGA-AQUI-EL-TOKEN"
+# Lee la clave que generó instalar-servidor.ps1 (un solo renglón, sin espacios)
+$ClaveAgente = Get-Content "\\dc01.lab.lan\CiberMensajeria$\clave-agente.txt" -Raw
 $Instalador = "\\dc01.lab.lan\CiberMensajeria$\instaladores\windows\instalar-agente.ps1"
 if (-not (Test-Path "C:\Program Files\CiberMensajeria\agente\__main__.py")) {
-    & powershell.exe -ExecutionPolicy Bypass -File $Instalador -Token $Token
+    & powershell.exe -ExecutionPolicy Bypass -File $Instalador -Token $ClaveAgente.Trim()
 }
 ```
 
-Sustituye el token por el que generó `instalar-servidor.ps1`.
+Guarda en `clave-agente.txt` el valor que mostró `instalar-servidor.ps1` al instalar
+el servidor (solo lectura para administradores de la carpeta compartida).
 
 ## Paso 3 — Crear la GPO
 
