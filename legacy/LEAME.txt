@@ -1,0 +1,4 @@
+Acá va panel-cibercafe.ps1, el script anterior (msg.exe + SSH) que ya
+funciona. Se copia a mano, no se modifica ni se reescribe: es el plan B si
+el agente no se puede instalar en algún equipo (ver "Envío de respaldo" en
+la Fase 7 de PLAN.md).
