@@ -1,0 +1,9 @@
+{
+  "host_agentes": "0.0.0.0",
+  "puerto_agentes": 5050,
+  "host_panel": "127.0.0.1",
+  "puerto_panel": 8080,
+  "token": "cambia-este-token",
+  "avisos_minutos": [5, 1],
+  "texto_fin_sesion": "Tu tiempo terminó, pasa a caja."
+}

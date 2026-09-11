@@ -4,3 +4,12 @@
 
 # Local-only human-context docs (never pushed)
 .local-docs/
+
+# Python
+__pycache__/
+*.pyc
+
+# Datos/logs generados al correr el servidor en local
+/datos/
+*.log
+historial.jsonl

@@ -2,8 +2,8 @@
 
 ## Estado
 
-- [ ] Fase 0 — Estructura del proyecto
-- [ ] Fase 1 — Protocolo y núcleo del servidor
+- [x] Fase 0 — Estructura del proyecto
+- [x] Fase 1 — Protocolo y núcleo del servidor
 - [ ] Fase 2 — Agente con ventanas emergentes
 - [ ] Fase 3 — Panel web del servidor
 - [ ] Fase 4 — Sesiones con tiempo (lo "cibercafé")

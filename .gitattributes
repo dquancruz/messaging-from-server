@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+# Los .ps1 se escriben ya con BOM (bytes b'\xef\xbb\xbf' al inicio) porque el
+# PowerShell 5.1 de Windows Server 2022 lee mal los acentos sin BOM; acá solo
+# fijamos el fin de línea, sin transcodificar (eso podría duplicar/perder el
+# BOM al hacer checkout).
+*.ps1 text eol=crlf
+*.sh  text eol=lf
+*.py  text eol=lf
