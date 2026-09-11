@@ -54,7 +54,11 @@ def configurar_logs(directorio: Path) -> None:
 
 
 async def ejecutar(config: dict, directorio_datos: Path) -> None:
-    estado = EstadoServidor(archivo_historial=directorio_datos / "historial.jsonl")
+    estado = EstadoServidor(
+        archivo_historial=directorio_datos / "historial.jsonl",
+        avisos_minutos=config.get("avisos_minutos"),
+        texto_fin_sesion=config.get("texto_fin_sesion", "Tu tiempo terminó, pasa a caja."),
+    )
     servidor = Servidor(
         estado=estado,
         token=config["token"],
