@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
+from typing import Any
 
 from comun import protocolo
 from servidor.estado import EstadoServidor
@@ -67,6 +69,63 @@ class Servidor:
             await self._servidor.wait_closed()
         self.estado.cerrar()
         registrador.info("servidor detenido")
+
+    async def enviar_mensaje(
+        self,
+        *,
+        destinos: list[str] | str,
+        texto: str,
+        nivel: str = "info",
+        titulo: str = "Cibercafé",
+        pedir_visto: bool = True,
+    ) -> dict[str, Any]:
+        """Envía un mensaje emergente a uno o varios equipos.
+
+        ``destinos`` puede ser una lista de nombres de equipo o la cadena
+        ``"todos"`` para mandarlo a todos los conectados.
+        """
+        if nivel not in protocolo.NIVELES_VALIDOS:
+            raise ValueError(f"nivel inválido: {nivel!r}")
+
+        if destinos == "todos":
+            nombres = sorted(
+                nombre for nombre, eq in self.estado.equipos.items() if eq.conectado
+            )
+        else:
+            nombres = [d.strip().lower() for d in destinos if d.strip()]
+
+        if not nombres:
+            return {"enviados": 0, "equipos": [], "id": None}
+
+        id_mensaje = str(uuid.uuid4())
+        mensaje = {
+            "tipo": "mensaje",
+            "id": id_mensaje,
+            "titulo": titulo,
+            "texto": texto,
+            "nivel": nivel,
+            "pedir_visto": pedir_visto,
+        }
+
+        equipos_alcanzados: set[str] = set()
+        for nombre_equipo, escritor in self.estado.escritores_de(nombres):
+            if await self._enviar(escritor, mensaje):
+                equipos_alcanzados.add(nombre_equipo)
+
+        for nombre in equipos_alcanzados:
+            self.estado.registrar_mensaje_enviado(nombre, id_mensaje)
+
+        registrador.info(
+            "mensaje '%s' enviado a %s equipo(s): %s",
+            id_mensaje,
+            len(equipos_alcanzados),
+            ", ".join(sorted(equipos_alcanzados)) or "(ninguno)",
+        )
+        return {
+            "id": id_mensaje,
+            "enviados": len(equipos_alcanzados),
+            "equipos": sorted(equipos_alcanzados),
+        }
 
     async def _enviar(self, escritor: asyncio.StreamWriter, mensaje: dict) -> bool:
         """Manda un mensaje; si la conexión ya se cayó, no explota."""
@@ -171,7 +230,7 @@ class Servidor:
                 await self._enviar(escritor, {"tipo": "pong"})
             elif tipo == "visto":
                 self.estado.registrar_latido(nombre_equipo, id_conexion)
-                self.estado.registrar_evento("visto", equipo=nombre_equipo, id_mensaje=mensaje["id"])
+                self.estado.registrar_visto(nombre_equipo, mensaje["id"])
                 registrador.info("'%s' confirmó visto de %s", nombre_equipo, mensaje["id"])
             else:
                 registrador.warning(

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ciber Mensajería — Panel</title>
+  <link rel="stylesheet" href="/panel/estilo.css">
+</head>
+<body>
+  <header>
+    <h1>Ciber Mensajería</h1>
+    <p class="subtitulo">Panel de control — lab.lan</p>
+  </header>
+
+  <main>
+    <section class="mensajes" aria-labelledby="titulo-mensaje">
+      <h2 id="titulo-mensaje">Enviar aviso</h2>
+
+      <div class="atajos">
+        <button type="button" class="atajo" data-texto="Te quedan 5 minutos" data-nivel="aviso">
+          Te quedan 5 minutos
+        </button>
+        <button type="button" class="atajo" data-texto="Te queda 1 minuto" data-nivel="critico">
+          Te queda 1 minuto
+        </button>
+        <button type="button" class="atajo" data-texto="Tu tiempo terminó, pasa a caja" data-nivel="critico">
+          Tu tiempo terminó, pasa a caja
+        </button>
+      </div>
+
+      <form id="form-mensaje">
+        <label for="texto">Mensaje</label>
+        <textarea id="texto" name="texto" rows="3" required placeholder="Escribe el aviso para los equipos seleccionados…"></textarea>
+
+        <div class="fila">
+          <label for="nivel">Nivel</label>
+          <select id="nivel" name="nivel">
+            <option value="info">Información</option>
+            <option value="aviso">Aviso</option>
+            <option value="critico">Crítico</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn-enviar">Enviar aviso</button>
+        <p id="estado-envio" class="estado-envio" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section class="equipos" aria-labelledby="titulo-equipos">
+      <div class="cabecera-tabla">
+        <h2 id="titulo-equipos">Equipos conectados</h2>
+        <label class="seleccionar-todos">
+          <input type="checkbox" id="seleccionar-todos">
+          Seleccionar todos
+        </label>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th scope="col" class="col-sel">Sel.</th>
+            <th scope="col" class="col-so">SO</th>
+            <th scope="col">Equipo</th>
+            <th scope="col">Usuario</th>
+            <th scope="col">IP</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Visto ✓</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-equipos">
+          <tr>
+            <td colspan="7" class="vacio">Cargando equipos…</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="/panel/app.js"></script>
+</body>
+</html>

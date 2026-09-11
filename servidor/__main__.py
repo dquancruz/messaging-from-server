@@ -15,6 +15,7 @@ from pathlib import Path
 
 from comun import protocolo
 from servidor.estado import EstadoServidor
+from servidor.panel_http import PanelHTTP
 from servidor.servidor import Servidor
 
 RUTA_CONFIG_POR_DEFECTO = Path(__file__).parent / "config.json"
@@ -61,9 +62,28 @@ async def ejecutar(config: dict, directorio_datos: Path) -> None:
         puerto=config.get("puerto_agentes", protocolo.PUERTO_AGENTES_POR_DEFECTO),
     )
     servidor_asyncio = await servidor.iniciar()
+
+    host_panel = config.get("host_panel", "127.0.0.1")
+    password_panel = config.get("password_panel")
+    if host_panel == "0.0.0.0" and not password_panel:
+        raise ErrorConfiguracion(
+            "si 'host_panel' es '0.0.0.0' debe definirse 'password_panel' en la configuración"
+        )
+
+    loop = asyncio.get_running_loop()
+    panel = PanelHTTP(
+        servidor=servidor,
+        loop=loop,
+        host=host_panel,
+        puerto=config.get("puerto_panel", protocolo.PUERTO_PANEL_POR_DEFECTO),
+        password=password_panel,
+    )
+    panel.iniciar()
+
     try:
         await servidor_asyncio.serve_forever()
     finally:
+        panel.detener()
         await servidor.detener()
 
 
