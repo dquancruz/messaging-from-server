@@ -7,7 +7,7 @@
 - [x] Fase 2 — Agente con ventanas emergentes
 - [x] Fase 3 — Panel web del servidor
 - [x] Fase 4 — Sesiones con tiempo (lo "cibercafé")
-- [ ] Fase 5 — Instaladores por sistema operativo
+- [x] Fase 5 — Instaladores por sistema operativo
 - [ ] Fase 6 — Pruebas en la red real
 - [ ] Fase 7 — Extras (opcionales)
 

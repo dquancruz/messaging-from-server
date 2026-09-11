@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Ciber Mensajería Agente
+Comment=Recibe avisos del servidor del cibercafé
+Exec=/opt/ciber-mensajeria/ejecutar-agente.sh
+Terminal=false
+X-GNOME-Autostart-enabled=true
