@@ -225,6 +225,80 @@ tr.desconectado {
   color: var(--desconectado);
 }
 
+.estado-badge.bloqueado {
+  background: #fee2e2;
+  color: var(--critico);
+}
+
+.col-tiempo {
+  font-family: "Consolas", "Courier New", monospace;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.tiempo-ok {
+  color: var(--ok);
+}
+
+.tiempo-bajo {
+  color: var(--critico);
+}
+
+.tiempo-agotado {
+  color: var(--desconectado);
+}
+
+.col-sesion {
+  min-width: 18rem;
+}
+
+.acciones-sesion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.btn-sesion {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.btn-sesion:hover {
+  background: #f1f5f9;
+}
+
+.btn-terminar {
+  border-color: #fecaca;
+  color: var(--critico);
+}
+
+.btn-desbloquear {
+  border-color: #bbf7d0;
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.minutos-libres {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.input-minutos {
+  width: 3.5rem;
+  font-size: 0.9rem;
+  padding: 0.25rem;
+}
+
+.sesion-offline {
+  color: var(--desconectado);
+}
+
 .visto-hora {
   font-weight: 600;
   color: var(--ok);
