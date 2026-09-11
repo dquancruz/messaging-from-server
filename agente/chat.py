@@ -5,6 +5,11 @@ from __future__ import annotations
 import queue
 import tkinter as tk
 from tkinter import font as tkfont
+from agente.chat_util import (
+    MARCA_ENVIANDO,
+    confirmar_mensaje_en_historial,
+    revertir_pendiente_en_historial,
+)
 from agente.plataforma import nombre_equipo
 
 LIMITE_TEXTO = 2000
@@ -131,6 +136,32 @@ class VentanaChat:
         if self._interlocutor == clave:
             self._mostrar_historial(clave)
 
+    def confirmar_mensaje(self, para: str, id_mensaje: str, cuando: str) -> bool:
+        """Actualiza el último mensaje optimista con la confirmación del servidor."""
+        clave = para.strip().lower()
+        historial = self._mensajes_por_interlocutor.setdefault(clave, [])
+        if not confirmar_mensaje_en_historial(
+            historial, self.nombre_local, clave, id_mensaje, cuando
+        ):
+            return False
+        self._limpiar_error_envio()
+        if self._interlocutor == clave:
+            self._mostrar_historial(clave)
+        return True
+
+    def revertir_pendiente(self, motivo: str, para: str | None = None) -> bool:
+        """Quita el último mensaje optimista y muestra el motivo del rechazo."""
+        clave = (para or self._interlocutor or "").strip().lower()
+        if not clave:
+            return False
+        historial = self._mensajes_por_interlocutor.setdefault(clave, [])
+        if not revertir_pendiente_en_historial(historial, self.nombre_local):
+            return False
+        self._mostrar_error_envio(motivo)
+        if self._interlocutor == clave:
+            self._mostrar_historial(clave)
+        return True
+
     def _actualizar_lista_equipos(self) -> None:
         if self._lista_equipos is None:
             return
@@ -178,12 +209,22 @@ class VentanaChat:
         self._historial.configure(state=tk.DISABLED)
         self._historial.see(tk.END)
 
-    def _actualizar_estado_ui(self) -> None:
+    def _mostrar_error_envio(self, motivo: str) -> None:
+        if self._etiqueta_estado is None:
+            return
+        texto = motivo.strip() if motivo else "No se pudo enviar el mensaje."
+        self._etiqueta_estado.configure(text=texto)
+
+    def _limpiar_error_envio(self) -> None:
         if self._etiqueta_estado is None:
             return
         if self._habilitado:
             self._etiqueta_estado.configure(text="")
-        else:
+
+    def _actualizar_estado_ui(self) -> None:
+        if self._etiqueta_estado is None:
+            return
+        if not self._habilitado:
             self._etiqueta_estado.configure(
                 text="El chat está desactivado por caja. No puedes enviar mensajes."
             )
@@ -214,7 +255,7 @@ class VentanaChat:
                 "de_usuario": "",
                 "para": self._interlocutor,
                 "texto": texto,
-                "cuando": "enviando…",
+                "cuando": MARCA_ENVIANDO,
             },
             propio=True,
         )

@@ -90,8 +90,16 @@ class GestorVentanas:
             self._chat.actualizar_equipos(evento.get("equipos", []))
         elif tipo == "chat_recibido":
             self._chat.agregar_mensaje(evento.get("mensaje", {}), propio=False)
+        elif tipo == "chat_enviado":
+            self._chat.confirmar_mensaje(
+                str(evento.get("para", "")),
+                str(evento.get("id", "")),
+                str(evento.get("cuando", "")),
+            )
         elif tipo == "chat_rechazado":
-            registrador.warning("chat rechazado: %s", evento.get("motivo"))
+            motivo = str(evento.get("motivo", "No se pudo enviar el mensaje."))
+            registrador.warning("chat rechazado: %s", motivo)
+            self._chat.revertir_pendiente(motivo)
         elif tipo == "chat_historial_respuesta":
             self._chat.establecer_historial(
                 str(evento.get("con", "")),

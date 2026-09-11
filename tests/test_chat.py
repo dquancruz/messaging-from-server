@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import queue
 import tempfile
 import threading
 import unittest
@@ -8,6 +9,12 @@ import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from agente.agente import manejar_mensaje_servidor
+from agente.chat_util import (
+    MARCA_ENVIANDO,
+    confirmar_mensaje_en_historial,
+    revertir_pendiente_en_historial,
+)
 from comun import protocolo
 from servidor.chat import GestorChat, clave_conversacion
 from servidor.estado import EstadoServidor
@@ -95,6 +102,57 @@ def _peticion_error(url, metodo="GET", datos=None, auth=None):
         except json.JSONDecodeError:
             datos_error = {"error": cuerpo_error}
         return exc.code, datos_error
+
+
+class PruebasChatUtil(unittest.TestCase):
+    def test_confirmar_mensaje_actualiza_pendiente(self):
+        historial = [
+            {
+                "de": "pc-a",
+                "texto": "hola",
+                "cuando": MARCA_ENVIANDO,
+            }
+        ]
+        confirmado = confirmar_mensaje_en_historial(
+            historial, "pc-a", "pc-b", "msg-1", "2026-09-11T12:00:00+00:00"
+        )
+        self.assertTrue(confirmado)
+        self.assertEqual(historial[0]["id"], "msg-1")
+        self.assertEqual(historial[0]["cuando"], "2026-09-11T12:00:00+00:00")
+
+    def test_revertir_pendiente_quita_mensaje(self):
+        historial = [
+            {
+                "de": "pc-a",
+                "texto": "hola",
+                "cuando": MARCA_ENVIANDO,
+            }
+        ]
+        revertido = revertir_pendiente_en_historial(historial, "pc-a")
+        self.assertTrue(revertido)
+        self.assertEqual(historial, [])
+
+
+class PruebasManejoMensajesChat(unittest.TestCase):
+    def test_chat_enviado_llega_a_la_cola_ui(self):
+        cola_ui: queue.Queue = queue.Queue()
+        manejar_mensaje_servidor(
+            {"tipo": "chat_enviado", "id": "x", "para": "pc-b", "cuando": "ahora"},
+            cola_ui,
+        )
+        evento = cola_ui.get_nowait()
+        self.assertEqual(evento["tipo"], "chat_enviado")
+        self.assertEqual(evento["para"], "pc-b")
+
+    def test_chat_rechazado_llega_a_la_cola_ui(self):
+        cola_ui: queue.Queue = queue.Queue()
+        manejar_mensaje_servidor(
+            {"tipo": "chat_rechazado", "motivo": "chat desactivado"},
+            cola_ui,
+        )
+        evento = cola_ui.get_nowait()
+        self.assertEqual(evento["tipo"], "chat_rechazado")
+        self.assertEqual(evento["motivo"], "chat desactivado")
 
 
 class PruebasProtocoloChat(unittest.TestCase):
