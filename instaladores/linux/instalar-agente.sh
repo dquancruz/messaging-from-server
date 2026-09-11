@@ -71,7 +71,7 @@ if [ -z "$TOKEN" ]; then
     if [ ! -f "$CONFIG_AGENTE_ORIGEN" ]; then
         error "falta --token y no se encontró $CONFIG_AGENTE_ORIGEN"
     fi
-    TOKEN="$(python3 -c "import json; print(json.load(open('$CONFIG_AGENTE_ORIGEN'))['token'])")"
+    TOKEN=$(python3 -c "import json; print(json.load(open('$CONFIG_AGENTE_ORIGEN'))['token'])")
     log "Usando token del repositorio: $TOKEN"
 fi
 DESTINO="/opt/ciber-mensajeria"
