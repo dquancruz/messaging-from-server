@@ -274,10 +274,16 @@ class VentanaChat:
         return "break"
 
 
-def crear_acceso_chat(root: tk.Tk, abrir) -> tk.Button:
-    """Botón flotante para abrir el chat."""
-    boton = tk.Button(
-        root,
+def crear_acceso_chat(root: tk.Tk, abrir) -> tk.Toplevel:
+    """Botón flotante para abrir el chat (ventana propia, no en la raíz oculta)."""
+    ventana = tk.Toplevel(root)
+    ventana.title("")
+    ventana.overrideredirect(True)
+    ventana.attributes("-topmost", True)
+    ventana.configure(bg="#2563eb")
+
+    tk.Button(
+        ventana,
         text="Chat",
         font=tkfont.Font(family="Segoe UI", size=11, weight="bold"),
         command=abrir,
@@ -289,5 +295,8 @@ def crear_acceso_chat(root: tk.Tk, abrir) -> tk.Button:
         activeforeground="#ffffff",
         relief=tk.FLAT,
         cursor="hand2",
-    )
-    return boton
+        borderwidth=0,
+        highlightthickness=0,
+    ).pack()
+
+    return ventana
