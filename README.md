@@ -45,12 +45,6 @@ python -m unittest discover -s tests -v
 # Servidor en local
 python -m servidor --config servidor/config.json
 
-# Agente en local (requiere tkinter / DISPLAY)
-python -m agente --config agente/config.json
-
 # Simular equipos falsos (sin las máquinas reales)
 python herramientas/simular_agentes.py --n 4
-
-# Mandar un mensaje de prueba (servidor corriendo con puerto_admin)
-python herramientas/enviar_mensaje.py --destinos todos --texto "Hola desde caja"
 ```

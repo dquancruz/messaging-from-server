@@ -2,5 +2,6 @@
   "servidor": "dc01.lab.lan",
   "servidor_respaldo": "192.168.1.10",
   "puerto": 5050,
-  "token": "cambia-este-token"
+  "token": "cambia-este-token",
+  "bloqueo_nativo": false
 }

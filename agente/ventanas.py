@@ -1,4 +1,4 @@
-"""Ventanas emergentes del agente (tkinter en el hilo principal)."""
+"""Ventanas del agente: emergentes, contador y pantalla de bloqueo."""
 
 from __future__ import annotations
 
@@ -8,11 +8,15 @@ import tkinter as tk
 from tkinter import font as tkfont
 from typing import Callable
 
+from agente.plataforma import bloquear_sistema_nativo, nombre_equipo
+
 registrador = logging.getLogger("agente.ventanas")
 
 TITULO_VENTANA = "Cibercafé"
 INTERVALO_COLA_MS = 200
 DESPLAZAMIENTO_APILADO = 24
+INTERVALO_BLOQUEO_MS = 1000
+UMBRAL_ALERTA_SEGUNDOS = 5 * 60
 
 COLORES_NIVEL = {
     "info": {"fondo": "#1565C0", "texto": "#FFFFFF"},
@@ -21,21 +25,33 @@ COLORES_NIVEL = {
 }
 
 
+def _formatear_tiempo(segundos: int) -> str:
+    minutos, segs = divmod(max(0, segundos), 60)
+    return f"{minutos:02d}:{segs:02d}"
+
+
 class GestorVentanas:
-    """Muestra avisos encima de todo sin bloquear el hilo de red."""
+    """Muestra avisos, contador y bloqueo sin frenar el hilo de red."""
 
     def __init__(
         self,
         root: tk.Tk,
         cola_ui: queue.Queue,
         cola_red: queue.Queue,
+        config: dict | None = None,
         al_cerrar: Callable[[], None] | None = None,
     ) -> None:
         self.root = root
         self.cola_ui = cola_ui
         self.cola_red = cola_red
+        self.config = config or {}
         self.al_cerrar = al_cerrar
         self._ventanas_abiertas: list[tk.Toplevel] = []
+        self._contador: tk.Toplevel | None = None
+        self._etiqueta_contador: tk.Label | None = None
+        self._bloqueo: tk.Toplevel | None = None
+        self._texto_bloqueo = "Tu tiempo terminó, pasa a caja."
+        self._restante_sesion: int | None = None
         self._programar_revision_cola()
 
     def _programar_revision_cola(self) -> None:
@@ -54,8 +70,151 @@ class GestorVentanas:
         tipo = evento.get("tipo")
         if tipo == "mostrar_mensaje":
             self._mostrar_emergente(evento["mensaje"])
+        elif tipo == "sesion":
+            self._actualizar_contador(evento.get("restante"))
+        elif tipo == "bloquear":
+            texto = evento.get("texto")
+            if texto:
+                self._texto_bloqueo = texto
+            self._mostrar_bloqueo()
+        elif tipo == "desbloquear":
+            self._ocultar_bloqueo()
         elif tipo == "cerrar":
             self.root.quit()
+
+    def _actualizar_contador(self, restante: int | None) -> None:
+        self._restante_sesion = restante
+        if restante is None:
+            self._ocultar_contador()
+            return
+
+        if self._contador is None:
+            self._crear_contador()
+
+        texto = f"⏱ {_formatear_tiempo(restante)}"
+        color_fondo = "#C62828" if restante < UMBRAL_ALERTA_SEGUNDOS else "#1e293b"
+        self._contador.configure(bg=color_fondo)
+        if self._etiqueta_contador is not None:
+            self._etiqueta_contador.configure(text=texto, bg=color_fondo)
+        self._contador.lift()
+
+    def _crear_contador(self) -> None:
+        ventana = tk.Toplevel(self.root)
+        ventana.title("")
+        ventana.overrideredirect(True)
+        ventana.attributes("-topmost", True)
+        ventana.configure(bg="#1e293b")
+
+        fuente = tkfont.Font(family="Segoe UI", size=16, weight="bold")
+        etiqueta = tk.Label(
+            ventana,
+            text="⏱ 00:00",
+            font=fuente,
+            bg="#1e293b",
+            fg="#FFFFFF",
+            padx=16,
+            pady=10,
+        )
+        etiqueta.pack()
+        self._contador = ventana
+        self._etiqueta_contador = etiqueta
+        self._posicionar_contador()
+
+    def _posicionar_contador(self) -> None:
+        if self._contador is None:
+            return
+        self._contador.update_idletasks()
+        ancho = self._contador.winfo_width()
+        alto = self._contador.winfo_height()
+        margen = 16
+        x = self._contador.winfo_screenwidth() - ancho - margen
+        y = self._contador.winfo_screenheight() - alto - margen - 48
+        self._contador.geometry(f"+{x}+{y}")
+
+    def _ocultar_contador(self) -> None:
+        if self._contador is not None:
+            self._contador.destroy()
+            self._contador = None
+            self._etiqueta_contador = None
+
+    def _mostrar_bloqueo(self) -> None:
+        self._ocultar_contador()
+        if self.config.get("bloqueo_nativo"):
+            bloquear_sistema_nativo()
+
+        if self._bloqueo is not None:
+            self._actualizar_texto_bloqueo()
+            self._bloqueo.lift()
+            return
+
+        ventana = tk.Toplevel(self.root)
+        ventana.title("")
+        ventana.overrideredirect(True)
+        ventana.attributes("-topmost", True)
+        ventana.configure(bg="#111827")
+        ventana.geometry(
+            f"{ventana.winfo_screenwidth()}x{ventana.winfo_screenheight()}+0+0"
+        )
+
+        fuente_titulo = tkfont.Font(family="Segoe UI", size=36, weight="bold")
+        fuente_texto = tkfont.Font(family="Segoe UI", size=22)
+        fuente_equipo = tkfont.Font(family="Segoe UI", size=16)
+
+        marco = tk.Frame(ventana, bg="#111827")
+        marco.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+        tk.Label(
+            marco,
+            text="Cibercafé",
+            font=fuente_titulo,
+            bg="#111827",
+            fg="#FFFFFF",
+        ).pack(pady=(0, 24))
+
+        self._etiqueta_bloqueo = tk.Label(
+            marco,
+            text=self._texto_bloqueo,
+            font=fuente_texto,
+            bg="#111827",
+            fg="#F9FAFB",
+            wraplength=700,
+            justify=tk.CENTER,
+        )
+        self._etiqueta_bloqueo.pack(pady=(0, 16))
+
+        tk.Label(
+            marco,
+            text=nombre_equipo(),
+            font=fuente_equipo,
+            bg="#111827",
+            fg="#9CA3AF",
+        ).pack()
+
+        ventana.protocol("WM_DELETE_WINDOW", lambda: None)
+        self._bloqueo = ventana
+        self._mantener_bloqueo_arriba()
+
+    def _actualizar_texto_bloqueo(self) -> None:
+        if self._bloqueo is None:
+            return
+        for widget in self._bloqueo.winfo_children():
+            for hijo in widget.winfo_children():
+                if isinstance(hijo, tk.Label) and hijo.cget("font"):
+                    fuente = tkfont.Font(font=hijo.cget("font"))
+                    if fuente.cget("size") == 22:
+                        hijo.configure(text=self._texto_bloqueo)
+
+    def _mantener_bloqueo_arriba(self) -> None:
+        if self._bloqueo is None:
+            return
+        self._bloqueo.lift()
+        self._bloqueo.attributes("-topmost", True)
+        self._bloqueo.after(INTERVALO_BLOQUEO_MS, self._mantener_bloqueo_arriba)
+
+    def _ocultar_bloqueo(self) -> None:
+        if self._bloqueo is not None:
+            self._bloqueo.destroy()
+            self._bloqueo = None
 
     def _mostrar_emergente(self, mensaje: dict) -> None:
         nivel = mensaje.get("nivel", "info")

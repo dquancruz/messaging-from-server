@@ -13,7 +13,6 @@ from agente.agente import (
 )
 from agente.plataforma import nombre_equipo, resolver_servidor
 from comun import protocolo
-from servidor.admin import ServidorAdmin
 from servidor.estado import EstadoServidor
 from servidor.servidor import Servidor
 
@@ -140,13 +139,16 @@ class PruebasClienteRed(unittest.TestCase):
 class PruebasIntegracionAgenteServidor(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.estado = EstadoServidor()
-        self.servidor = Servidor(estado=self.estado, token="secreto", host="127.0.0.1", puerto=0)
+        self.servidor = Servidor(
+            estado=self.estado,
+            token="secreto",
+            host="127.0.0.1",
+            puerto=0,
+            habilitar_temporizador=False,
+        )
         self.servidor_asyncio = await self.servidor.iniciar()
-        self.admin = ServidorAdmin(estado=self.estado, host="127.0.0.1", puerto=0)
-        self.admin_asyncio = await self.admin.iniciar()
 
         self.host_agentes, self.puerto_agentes = self.servidor_asyncio.sockets[0].getsockname()[:2]
-        self.host_admin, self.puerto_admin = self.admin_asyncio.sockets[0].getsockname()[:2]
 
         self.cola_ui: queue.Queue = queue.Queue()
         self.cola_red: queue.Queue = queue.Queue()
@@ -167,28 +169,38 @@ class PruebasIntegracionAgenteServidor(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         self.detener.set()
         self.cliente.join(timeout=2)
-        await self.admin.detener()
         await self.servidor.detener()
 
+    async def _esperar_conexion(self, equipo: str) -> None:
+        for _ in range(50):
+            if self.estado.equipos.get(equipo, None) and self.estado.equipos[equipo].conectado:
+                return
+            await asyncio.sleep(0.1)
+        self.fail(f"el agente '{equipo}' no se conectó a tiempo")
+
     async def test_mensaje_del_servidor_llega_al_agente(self):
-        await asyncio.sleep(0.2)
-        enviados = await self.estado.enviar_mensaje(
-            destinos=nombre_equipo(),
+        equipo = nombre_equipo()
+        await self._esperar_conexion(equipo)
+
+        resultado = await self.servidor.enviar_mensaje(
+            destinos=equipo,
             titulo="Prueba",
             texto="Hola desde el servidor",
             nivel="aviso",
             pedir_visto=True,
-            id_mensaje="msg-1",
         )
-        self.assertGreaterEqual(enviados, 0)
+        self.assertGreaterEqual(resultado["enviados"], 1)
 
         evento = None
-        for _ in range(30):
+        for _ in range(50):
             try:
-                evento = self.cola_ui.get(timeout=0.2)
-                break
+                candidato = self.cola_ui.get(timeout=0.2)
             except queue.Empty:
                 await asyncio.sleep(0.1)
+                continue
+            if candidato.get("tipo") == "mostrar_mensaje":
+                evento = candidato
+                break
         self.assertIsNotNone(evento)
         assert evento is not None
         self.assertEqual(evento["tipo"], "mostrar_mensaje")
@@ -196,11 +208,7 @@ class PruebasIntegracionAgenteServidor(unittest.IsolatedAsyncioTestCase):
 
     async def test_visto_llega_al_historial(self):
         equipo = nombre_equipo()
-        for _ in range(30):
-            if self.estado.equipos.get(equipo, None) and self.estado.equipos[equipo].conectado:
-                break
-            await asyncio.sleep(0.1)
-        self.assertTrue(self.estado.equipos[equipo].conectado)
+        await self._esperar_conexion(equipo)
 
         self.cola_red.put({"tipo": "visto", "id": "msg-99"})
         for _ in range(30):

@@ -1,9 +1,4 @@
-"""Estado en memoria del servidor: equipos conectados e historial.
-
-La Fase 1 solo cubre registro y conexiones; las sesiones con tiempo
-(bloqueo, contador, avisos automáticos) llegan en la Fase 4 — ver
-PLAN.md.
-"""
+"""Estado en memoria del servidor: equipos, sesiones e historial."""
 
 from __future__ import annotations
 
@@ -11,13 +6,12 @@ import asyncio
 import concurrent.futures
 import json
 import logging
-import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
-from comun import protocolo
+from servidor.sesiones import AccionSesion, GestorSesiones
 
 registrador = logging.getLogger("servidor.estado")
 
@@ -47,21 +41,44 @@ class Equipo:
     version_so: str
     version_agente: str
     conexiones: dict[int, Conexion] = field(default_factory=dict)
+    # Último mensaje enviado desde el panel y cuándo el usuario confirmó
+    # "Entendido". La Fase 4 agrega sesión y bloqueo.
+    ultimo_mensaje_id: str | None = None
+    ultimo_visto: str | None = None
 
     @property
     def conectado(self) -> bool:
         return bool(self.conexiones)
 
+    def ips(self) -> list[str]:
+        return sorted({c.ip for c in self.conexiones.values()})
+
+    def usuarios(self) -> list[str]:
+        return sorted(c.usuario for c in self.conexiones.values())
+
     def a_dict(self) -> dict[str, Any]:
-        usuarios = sorted(c.usuario for c in self.conexiones.values())
         return {
             "nombre": self.nombre,
             "so": self.so,
             "version_so": self.version_so,
             "version_agente": self.version_agente,
             "conectado": self.conectado,
-            "usuarios": usuarios,
+            "usuarios": self.usuarios(),
             "conexiones_activas": len(self.conexiones),
+        }
+
+    def a_dict_api(self, gestor_sesiones: GestorSesiones) -> dict[str, Any]:
+        """Vista para el panel web: incluye IP, visto y campos de sesión."""
+        return {
+            "nombre": self.nombre,
+            "so": self.so,
+            "conectado": self.conectado,
+            "usuarios": self.usuarios(),
+            "ip": ", ".join(self.ips()) if self.ips() else "",
+            "tiempo_restante": gestor_sesiones.tiempo_restante(self.nombre),
+            "bloqueado": gestor_sesiones.esta_bloqueado(self.nombre),
+            "ultimo_mensaje_id": self.ultimo_mensaje_id,
+            "ultimo_visto": self.ultimo_visto,
         }
 
 
@@ -76,12 +93,20 @@ class EstadoServidor:
         self,
         archivo_historial: Path | str | None = None,
         limite_historial: int = 500,
+        avisos_minutos: list[int] | None = None,
+        texto_fin_sesion: str = "Tu tiempo terminó, pasa a caja.",
+        reloj: Callable[[], float] | None = None,
     ) -> None:
         self.equipos: dict[str, Equipo] = {}
         self._historial: list[dict[str, Any]] = []
         self._limite_historial = limite_historial
         self._archivo_historial = Path(archivo_historial) if archivo_historial else None
         self._siguiente_id_conexion = 1
+        self.sesiones = GestorSesiones(
+            avisos_minutos=avisos_minutos,
+            texto_fin_sesion=texto_fin_sesion,
+            reloj=reloj,
+        )
         # Un solo hilo dedicado a escribir historial.jsonl: saca esa I/O
         # bloqueante del hilo del event loop sin perder el orden de los
         # eventos (un solo worker los procesa en el orden en que llegan).
@@ -211,60 +236,77 @@ class EstadoServidor:
     def obtener_equipos(self) -> list[dict[str, Any]]:
         return [e.a_dict() for e in sorted(self.equipos.values(), key=lambda e: e.nombre)]
 
-    async def enviar_mensaje(
-        self,
-        *,
-        destinos: list[str] | str,
-        titulo: str,
-        texto: str,
-        nivel: str = "info",
-        pedir_visto: bool = True,
-        id_mensaje: str | None = None,
-    ) -> int:
-        """Manda un aviso a uno o varios equipos conectados.
+    def obtener_equipos_api(self) -> list[dict[str, Any]]:
+        return [
+            e.a_dict_api(self.sesiones)
+            for e in sorted(self.equipos.values(), key=lambda e: e.nombre)
+        ]
 
-        ``destinos`` puede ser una lista de nombres, un nombre suelto o la
-        cadena ``"todos"``. Devuelve cuántas conexiones recibieron el
-        mensaje.
-        """
-        if nivel not in protocolo.NIVELES_VALIDOS:
-            raise ValueError(f"nivel inválido: {nivel!r}")
+    def iniciar_sesion(self, equipo: str, minutos: int) -> bool:
+        nombre = equipo.strip().lower()
+        if nombre not in self.equipos:
+            return False
+        self.sesiones.iniciar(nombre, minutos)
+        self.registrar_evento("sesion_iniciada", equipo=nombre, minutos=minutos)
+        return True
 
-        if isinstance(destinos, str):
-            nombres = list(self.equipos.keys()) if destinos == "todos" else [destinos]
-        else:
-            nombres = list(destinos)
+    def extender_sesion(self, equipo: str, minutos: int) -> bool:
+        nombre = equipo.strip().lower()
+        if nombre not in self.equipos:
+            return False
+        self.sesiones.extender(nombre, minutos)
+        self.registrar_evento("sesion_extendida", equipo=nombre, minutos=minutos)
+        return True
 
-        mensaje = {
-            "tipo": "mensaje",
-            "id": id_mensaje or str(uuid.uuid4()),
-            "titulo": titulo,
-            "texto": texto,
-            "nivel": nivel,
-            "pedir_visto": pedir_visto,
-        }
-        datos = protocolo.codificar(mensaje, protocolo.TIPOS_SERVIDOR_AGENTE)
-        enviados = 0
+    def terminar_sesion(self, equipo: str) -> bool:
+        nombre = equipo.strip().lower()
+        if nombre not in self.equipos:
+            return False
+        self.sesiones.terminar(nombre)
+        self.registrar_evento("sesion_terminada", equipo=nombre)
+        return True
 
-        for nombre in nombres:
-            equipo = self.equipos.get(nombre.strip().lower())
-            if equipo is None:
-                continue
-            for conexion in list(equipo.conexiones.values()):
-                try:
-                    conexion.escritor.write(datos)
-                    await conexion.escritor.drain()
-                    enviados += 1
-                except (ConnectionError, OSError) as exc:
-                    registrador.debug(
-                        "no se pudo enviar mensaje a %s: %s", nombre, exc
-                    )
+    def desbloquear_equipo(self, equipo: str) -> bool:
+        nombre = equipo.strip().lower()
+        if nombre not in self.equipos:
+            return False
+        self.sesiones.desbloquear(nombre)
+        self.registrar_evento("desbloqueado", equipo=nombre)
+        return True
 
+    def revisar_sesiones(self) -> list[AccionSesion]:
+        return self.sesiones.revisar(set(self.equipos.keys()))
+
+    def registrar_mensaje_enviado(self, equipo: str, id_mensaje: str) -> None:
+        """Marca que se envió un mensaje al equipo y espera confirmación."""
+        eq = self.equipos.get(equipo)
+        if eq is None:
+            return
+        eq.ultimo_mensaje_id = id_mensaje
+        eq.ultimo_visto = None
         self.registrar_evento(
             "mensaje_enviado",
-            destinos=nombres,
-            id_mensaje=mensaje["id"],
-            nivel=nivel,
-            conexiones=enviados,
+            equipo=equipo,
+            id_mensaje=id_mensaje,
         )
-        return enviados
+
+    def registrar_visto(self, equipo: str, id_mensaje: str) -> None:
+        """Registra que el usuario confirmó un mensaje."""
+        eq = self.equipos.get(equipo)
+        if eq is None:
+            return
+        if eq.ultimo_mensaje_id == id_mensaje:
+            eq.ultimo_visto = _ahora()
+        self.registrar_evento("visto", equipo=equipo, id_mensaje=id_mensaje)
+
+    def escritores_de(self, nombres: list[str]) -> list[tuple[str, asyncio.StreamWriter]]:
+        """Devuelve (equipo, escritor) de todas las conexiones activas de los
+        equipos indicados."""
+        resultado: list[tuple[str, asyncio.StreamWriter]] = []
+        for nombre in nombres:
+            equipo = self.equipos.get(nombre)
+            if equipo is None:
+                continue
+            for conexion in equipo.conexiones.values():
+                resultado.append((nombre, conexion.escritor))
+        return resultado

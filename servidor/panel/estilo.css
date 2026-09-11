@@ -1,0 +1,341 @@
+/* Panel de Ciber Mensajería — legible en proyector */
+
+:root {
+  --fondo: #f4f6f9;
+  --tarjeta: #ffffff;
+  --texto: #1a1f2e;
+  --texto-suave: #5a6478;
+  --borde: #d8dee9;
+  --acento: #2563eb;
+  --acento-hover: #1d4ed8;
+  --ok: #15803d;
+  --aviso: #ca8a04;
+  --critico: #dc2626;
+  --desconectado: #9ca3af;
+  --sombra: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+header {
+  background: #1e293b;
+  color: #fff;
+  padding: 1.25rem 2rem;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.subtitulo {
+  margin: 0.25rem 0 0;
+  font-size: 1.1rem;
+  color: #cbd5e1;
+}
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 3rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+section {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: var(--sombra);
+}
+
+h2 {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+}
+
+.atajos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.atajo {
+  font-size: 1rem;
+  padding: 0.6rem 1rem;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.atajo:hover {
+  border-color: var(--acento);
+  background: #eff6ff;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+textarea,
+select {
+  width: 100%;
+  font: inherit;
+  padding: 0.75rem;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+textarea:focus,
+select:focus {
+  outline: 3px solid #93c5fd;
+  border-color: var(--acento);
+}
+
+.fila {
+  max-width: 280px;
+}
+
+.btn-enviar {
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--acento);
+  color: #fff;
+  cursor: pointer;
+}
+
+.btn-enviar:hover {
+  background: var(--acento-hover);
+}
+
+.btn-enviar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.estado-envio {
+  margin: 0.75rem 0 0;
+  min-height: 1.5rem;
+  font-weight: 600;
+}
+
+.estado-envio.ok {
+  color: var(--ok);
+}
+
+.estado-envio.error {
+  color: var(--critico);
+}
+
+.cabecera-tabla {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.seleccionar-todos {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1.05rem;
+}
+
+th,
+td {
+  padding: 0.75rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--borde);
+}
+
+th {
+  background: #f1f5f9;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--texto-suave);
+}
+
+.col-sel {
+  width: 3rem;
+  text-align: center;
+}
+
+.col-so {
+  width: 3.5rem;
+  text-align: center;
+}
+
+tr.desconectado {
+  opacity: 0.55;
+}
+
+.icono-so {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.estado-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.estado-badge.conectado {
+  background: #dcfce7;
+  color: var(--ok);
+}
+
+.estado-badge.desconectado {
+  background: #f3f4f6;
+  color: var(--desconectado);
+}
+
+.estado-badge.bloqueado {
+  background: #fee2e2;
+  color: var(--critico);
+}
+
+.col-tiempo {
+  font-family: "Consolas", "Courier New", monospace;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.tiempo-ok {
+  color: var(--ok);
+}
+
+.tiempo-bajo {
+  color: var(--critico);
+}
+
+.tiempo-agotado {
+  color: var(--desconectado);
+}
+
+.col-sesion {
+  min-width: 18rem;
+}
+
+.acciones-sesion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.btn-sesion {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.btn-sesion:hover {
+  background: #f1f5f9;
+}
+
+.btn-terminar {
+  border-color: #fecaca;
+  color: var(--critico);
+}
+
+.btn-desbloquear {
+  border-color: #bbf7d0;
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.minutos-libres {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.input-minutos {
+  width: 3.5rem;
+  font-size: 0.9rem;
+  padding: 0.25rem;
+}
+
+.sesion-offline {
+  color: var(--desconectado);
+}
+
+.visto-hora {
+  font-weight: 600;
+  color: var(--ok);
+}
+
+.visto-pendiente {
+  color: var(--aviso);
+  font-style: italic;
+}
+
+.vacio {
+  text-align: center;
+  color: var(--texto-suave);
+  padding: 2rem !important;
+}
+
+input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+}
+
+@media (max-width: 800px) {
+  body {
+    font-size: 16px;
+  }
+
+  main {
+    padding: 1rem;
+  }
+
+  table {
+    font-size: 0.95rem;
+  }
+
+  th,
+  td {
+    padding: 0.5rem 0.35rem;
+  }
+}

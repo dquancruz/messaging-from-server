@@ -1,15 +1,13 @@
 """Núcleo del servidor: acepta conexiones de agentes por TCP y les habla el
 protocolo definido en ``comun/protocolo.py``.
-
-Las sesiones con tiempo (bloquear/desbloquear/contador) llegan en la
-Fase 4; por ahora ``bienvenido`` siempre manda ``sesion: null`` y
-``bloqueado: false``. Ver PLAN.md.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
+from typing import Any
 
 from comun import protocolo
 from servidor.estado import EstadoServidor
@@ -39,6 +37,7 @@ class Servidor:
         puerto: int = protocolo.PUERTO_AGENTES_POR_DEFECTO,
         timeout_hola: float = TIMEOUT_HOLA,
         timeout_desconexion: float = protocolo.TIMEOUT_DESCONEXION,
+        habilitar_temporizador: bool = True,
     ) -> None:
         self.estado = estado
         self.token = token
@@ -48,7 +47,9 @@ class Servidor:
         # reales; en producción se usan los valores del protocolo.
         self.timeout_hola = timeout_hola
         self.timeout_desconexion = timeout_desconexion
+        self.habilitar_temporizador = habilitar_temporizador
         self._servidor: asyncio.AbstractServer | None = None
+        self._tarea_sesiones: asyncio.Task | None = None
 
     async def iniciar(self) -> asyncio.AbstractServer:
         self._servidor = await asyncio.start_server(
@@ -59,14 +60,152 @@ class Servidor:
         )
         direcciones = ", ".join(str(s.getsockname()) for s in self._servidor.sockets or ())
         registrador.info("escuchando agentes en %s", direcciones)
+        if self.habilitar_temporizador:
+            self._tarea_sesiones = asyncio.create_task(self._bucle_sesiones())
         return self._servidor
 
     async def detener(self) -> None:
+        if self._tarea_sesiones is not None:
+            self._tarea_sesiones.cancel()
+            try:
+                await self._tarea_sesiones
+            except asyncio.CancelledError:
+                pass
+            self._tarea_sesiones = None
         if self._servidor is not None:
             self._servidor.close()
             await self._servidor.wait_closed()
         self.estado.cerrar()
         registrador.info("servidor detenido")
+
+    async def _bucle_sesiones(self) -> None:
+        while True:
+            await asyncio.sleep(1)
+            try:
+                await self._tick_sesiones()
+            except Exception:  # noqa: BLE001 - el bucle no debe caerse
+                registrador.exception("error en el temporizador de sesiones")
+
+    async def _tick_sesiones(self) -> None:
+        for accion in self.estado.revisar_sesiones():
+            mensaje = dict(accion.mensaje)
+            if mensaje["tipo"] == "mensaje":
+                mensaje["id"] = str(uuid.uuid4())
+                await self._enviar_a_equipo(accion.equipo, mensaje)
+                self.estado.registrar_mensaje_enviado(accion.equipo, mensaje["id"])
+            else:
+                await self._enviar_a_equipo(accion.equipo, mensaje)
+
+    async def _enviar_a_equipo(self, equipo: str, mensaje: dict) -> int:
+        enviados = 0
+        for _, escritor in self.estado.escritores_de([equipo]):
+            if await self._enviar(escritor, mensaje):
+                enviados += 1
+        return enviados
+
+    async def iniciar_sesion(self, equipo: str, minutos: int) -> dict[str, Any]:
+        if minutos <= 0:
+            raise ValueError("los minutos deben ser positivos")
+        if not self.estado.iniciar_sesion(equipo, minutos):
+            raise ValueError(f"equipo desconocido: {equipo}")
+        nombre = equipo.strip().lower()
+        await self._enviar_a_equipo(nombre, {"tipo": "desbloquear"})
+        await self._sincronizar_sesion(nombre)
+        return {
+            "equipo": nombre,
+            "restante": self.estado.sesiones.tiempo_restante(nombre),
+        }
+
+    async def extender_sesion(self, equipo: str, minutos: int) -> dict[str, Any]:
+        if minutos <= 0:
+            raise ValueError("los minutos deben ser positivos")
+        if not self.estado.extender_sesion(equipo, minutos):
+            raise ValueError(f"equipo desconocido: {equipo}")
+        nombre = equipo.strip().lower()
+        await self.desbloquear_equipo(nombre)
+        await self._sincronizar_sesion(nombre)
+        return {
+            "equipo": nombre,
+            "restante": self.estado.sesiones.tiempo_restante(nombre),
+        }
+
+    async def terminar_sesion(self, equipo: str) -> dict[str, Any]:
+        if not self.estado.terminar_sesion(equipo):
+            raise ValueError(f"equipo desconocido: {equipo}")
+        nombre = equipo.strip().lower()
+        await self._tick_sesiones()
+        return {"equipo": nombre, "bloqueado": self.estado.sesiones.esta_bloqueado(nombre)}
+
+    async def desbloquear_equipo(self, equipo: str) -> dict[str, Any]:
+        if not self.estado.desbloquear_equipo(equipo):
+            raise ValueError(f"equipo desconocido: {equipo}")
+        nombre = equipo.strip().lower()
+        await self._enviar_a_equipo(nombre, {"tipo": "desbloquear"})
+        return {"equipo": nombre, "bloqueado": False}
+
+    async def _sincronizar_sesion(self, equipo: str) -> None:
+        restante = self.estado.sesiones.tiempo_restante(equipo)
+        await self._enviar_a_equipo(equipo, {"tipo": "sesion", "restante": restante})
+
+    async def enviar_mensaje(
+        self,
+        *,
+        destinos: list[str] | str,
+        texto: str,
+        nivel: str = "info",
+        titulo: str = "Cibercafé",
+        pedir_visto: bool = True,
+    ) -> dict[str, Any]:
+        """Envía un mensaje emergente a uno o varios equipos.
+
+        ``destinos`` puede ser una lista de nombres de equipo o la cadena
+        ``"todos"`` para mandarlo a todos los conectados.
+        """
+        if nivel not in protocolo.NIVELES_VALIDOS:
+            raise ValueError(f"nivel inválido: {nivel!r}")
+
+        if destinos == "todos":
+            nombres = sorted(
+                nombre for nombre, eq in self.estado.equipos.items() if eq.conectado
+            )
+        elif isinstance(destinos, str):
+            nombre = destinos.strip().lower()
+            nombres = [nombre] if nombre else []
+        else:
+            nombres = [d.strip().lower() for d in destinos if d.strip()]
+
+        if not nombres:
+            return {"enviados": 0, "equipos": [], "id": None}
+
+        id_mensaje = str(uuid.uuid4())
+        mensaje = {
+            "tipo": "mensaje",
+            "id": id_mensaje,
+            "titulo": titulo,
+            "texto": texto,
+            "nivel": nivel,
+            "pedir_visto": pedir_visto,
+        }
+
+        equipos_alcanzados: set[str] = set()
+        for nombre_equipo, escritor in self.estado.escritores_de(nombres):
+            if await self._enviar(escritor, mensaje):
+                equipos_alcanzados.add(nombre_equipo)
+
+        for nombre in equipos_alcanzados:
+            self.estado.registrar_mensaje_enviado(nombre, id_mensaje)
+
+        registrador.info(
+            "mensaje '%s' enviado a %s equipo(s): %s",
+            id_mensaje,
+            len(equipos_alcanzados),
+            ", ".join(sorted(equipos_alcanzados)) or "(ninguno)",
+        )
+        return {
+            "id": id_mensaje,
+            "enviados": len(equipos_alcanzados),
+            "equipos": sorted(equipos_alcanzados),
+        }
 
     async def _enviar(self, escritor: asyncio.StreamWriter, mensaje: dict) -> bool:
         """Manda un mensaje; si la conexión ya se cayó, no explota."""
@@ -171,7 +310,7 @@ class Servidor:
                 await self._enviar(escritor, {"tipo": "pong"})
             elif tipo == "visto":
                 self.estado.registrar_latido(nombre_equipo, id_conexion)
-                self.estado.registrar_evento("visto", equipo=nombre_equipo, id_mensaje=mensaje["id"])
+                self.estado.registrar_visto(nombre_equipo, mensaje["id"])
                 registrador.info("'%s' confirmó visto de %s", nombre_equipo, mensaje["id"])
             else:
                 registrador.warning(
@@ -206,11 +345,23 @@ class Servidor:
                 nombre_equipo, hola["usuario"], hola["so"], ip,
             )
 
+            restante = self.estado.sesiones.tiempo_restante(nombre_equipo)
+            bloqueado = self.estado.sesiones.esta_bloqueado(nombre_equipo)
             enviado = await self._enviar(
-                escritor, {"tipo": "bienvenido", "sesion": None, "bloqueado": False}
+                escritor,
+                {"tipo": "bienvenido", "sesion": restante, "bloqueado": bloqueado},
             )
             if not enviado:
                 return
+
+            if bloqueado:
+                await self._enviar(
+                    escritor,
+                    {
+                        "tipo": "bloquear",
+                        "texto": self.estado.sesiones.texto_bloqueo(nombre_equipo),
+                    },
+                )
 
             await self._bucle_mensajes(lector, escritor, nombre_equipo, id_conexion)
         finally:

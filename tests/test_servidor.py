@@ -164,6 +164,24 @@ class PruebasServidor(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resto, b"")
         self.assertFalse(self.estado.equipos["pc-08"].conectado)
 
+    async def test_enviar_mensaje_a_un_solo_equipo_como_cadena(self):
+        lector, escritor = await _conectar(self.servidor_asyncio)
+        self.addCleanup(escritor.close)
+
+        escritor.write(protocolo.codificar({**HOLA_BASE, "equipo": "PC-09"}))
+        await escritor.drain()
+        await _leer_mensaje(lector)
+        await asyncio.sleep(0.05)
+
+        resultado = await self.servidor.enviar_mensaje(
+            destinos="pc-09", texto="Aviso directo", nivel="info"
+        )
+        self.assertEqual(resultado["enviados"], 1)
+
+        linea = await asyncio.wait_for(lector.readline(), timeout=2)
+        mensaje = protocolo.decodificar_linea(linea, protocolo.TIPOS_SERVIDOR_AGENTE)
+        self.assertEqual(mensaje["texto"], "Aviso directo")
+
     async def test_desconexion_limpia_al_cerrar_el_cliente(self):
         lector, escritor = await _conectar(self.servidor_asyncio)
 

@@ -155,6 +155,25 @@ def resolver_servidor(servidor: str, servidor_respaldo: str, puerto: int) -> str
     return servidor_respaldo.strip() or servidor.strip()
 
 
+def bloquear_sistema_nativo() -> None:
+    """Intenta bloquear la sesión del sistema operativo (opcional)."""
+    import subprocess
+
+    so = detectar_so()
+    try:
+        if so == "windows":
+            subprocess.run(
+                ["rundll32.exe", "user32.dll,LockWorkStation"],
+                check=False,
+            )
+        elif so == "linux":
+            subprocess.run(["loginctl", "lock-session"], check=False)
+        elif so == "macos":
+            subprocess.run(["pmset", "displaysleepnow"], check=False)
+    except OSError:
+        pass
+
+
 def mensaje_hola(token: str, version_agente: str) -> dict:
     """Arma el mensaje ``hola`` con los datos de esta máquina."""
     so = detectar_so()

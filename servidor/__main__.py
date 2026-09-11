@@ -14,8 +14,8 @@ import sys
 from pathlib import Path
 
 from comun import protocolo
-from servidor.admin import ServidorAdmin
 from servidor.estado import EstadoServidor
+from servidor.panel_http import PanelHTTP
 from servidor.servidor import Servidor
 
 RUTA_CONFIG_POR_DEFECTO = Path(__file__).parent / "config.json"
@@ -54,7 +54,11 @@ def configurar_logs(directorio: Path) -> None:
 
 
 async def ejecutar(config: dict, directorio_datos: Path) -> None:
-    estado = EstadoServidor(archivo_historial=directorio_datos / "historial.jsonl")
+    estado = EstadoServidor(
+        archivo_historial=directorio_datos / "historial.jsonl",
+        avisos_minutos=config.get("avisos_minutos"),
+        texto_fin_sesion=config.get("texto_fin_sesion", "Tu tiempo terminó, pasa a caja."),
+    )
     servidor = Servidor(
         estado=estado,
         token=config["token"],
@@ -63,21 +67,27 @@ async def ejecutar(config: dict, directorio_datos: Path) -> None:
     )
     servidor_asyncio = await servidor.iniciar()
 
-    admin: ServidorAdmin | None = None
-    admin_asyncio = None
-    if config.get("puerto_admin"):
-        admin = ServidorAdmin(
-            estado=estado,
-            host=config.get("host_admin", "127.0.0.1"),
-            puerto=int(config["puerto_admin"]),
+    host_panel = config.get("host_panel", "127.0.0.1")
+    password_panel = config.get("password_panel")
+    if host_panel == "0.0.0.0" and not password_panel:
+        raise ErrorConfiguracion(
+            "si 'host_panel' es '0.0.0.0' debe definirse 'password_panel' en la configuración"
         )
-        admin_asyncio = await admin.iniciar()
+
+    loop = asyncio.get_running_loop()
+    panel = PanelHTTP(
+        servidor=servidor,
+        loop=loop,
+        host=host_panel,
+        puerto=config.get("puerto_panel", protocolo.PUERTO_PANEL_POR_DEFECTO),
+        password=password_panel,
+    )
+    panel.iniciar()
 
     try:
         await servidor_asyncio.serve_forever()
     finally:
-        if admin is not None:
-            await admin.detener()
+        panel.detener()
         await servidor.detener()
 
 

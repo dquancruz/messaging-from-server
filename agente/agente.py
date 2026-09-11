@@ -57,9 +57,16 @@ def manejar_mensaje_servidor(mensaje: dict, cola_ui: queue.Queue) -> None:
             mensaje.get("sesion"),
             mensaje.get("bloqueado"),
         )
+        cola_ui.put({"tipo": "sesion", "restante": mensaje.get("sesion")})
+    elif tipo == "sesion":
+        cola_ui.put({"tipo": "sesion", "restante": mensaje.get("restante")})
+    elif tipo == "bloquear":
+        cola_ui.put({"tipo": "bloquear", "texto": mensaje.get("texto")})
+    elif tipo == "desbloquear":
+        cola_ui.put({"tipo": "desbloquear"})
     elif tipo == "rechazado":
         registrador.error("rechazado por el servidor: %s", mensaje.get("motivo"))
-    elif tipo in {"sesion", "bloquear", "desbloquear", "pong"}:
+    elif tipo == "pong":
         registrador.debug("mensaje del servidor: %s", tipo)
     else:
         registrador.warning("tipo de mensaje desconocido del servidor: %s", tipo)

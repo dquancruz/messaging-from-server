@@ -96,7 +96,9 @@ def main(argv: list[str] | None = None) -> int:
         agente.detener()
         liberar_bloqueo_instancia()
 
-    gestor = GestorVentanas(root, agente.cola_ui, agente.cola_red, al_cerrar=al_cerrar)
+    gestor = GestorVentanas(
+        root, agente.cola_ui, agente.cola_red, config=config, al_cerrar=al_cerrar
+    )
     agente.iniciar_red()
 
     try:
