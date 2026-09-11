@@ -38,6 +38,17 @@ if (-not (Test-Path $config)) {
 $python = Buscar-Python
 if (-not $python) {
     Write-Host "No se encontró Python 3.10 o superior." -ForegroundColor Red
+    Write-Host "Instálelo desde https://www.python.org/downloads/ marcando:"
+    Write-Host "  - Install for all users"
+    Write-Host "  - Add python.exe to PATH"
+    exit 1
+}
+
+$partes = $python.Version.Split(".")
+$mayor = [int]$partes[0]
+$menor = [int]$partes[1]
+if ($mayor -lt 3 -or ($mayor -eq 3 -and $menor -lt 10)) {
+    Write-Host "Se requiere Python 3.10+ (encontrado: $($python.Version))" -ForegroundColor Red
     exit 1
 }
 
