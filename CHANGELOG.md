@@ -7,6 +7,10 @@
 ### Security
 ### Deprecated
 
+## [0.4.1] - 2026-09-11
+### Fixed
+- botón manual para actualizar lista de equipos ([#12](https://github.com/dquancruz/messaging-from-server/pull/12/dquancruz/messaging-from-server/actions/runs/34657506900))
+
 ## [0.4.0] - 2026-09-11
 ### Added
 - chat 1:1 entre clientes con panel de moderación ([#11](https://github.com/dquancruz/messaging-from-server/pull/11/dquancruz/messaging-from-server/actions/runs/34637535954))
