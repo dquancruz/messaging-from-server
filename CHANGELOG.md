@@ -7,6 +7,10 @@
 ### Security
 ### Deprecated
 
+## [0.4.2] - 2026-09-11
+### Fixed
+- mostrar botón Chat en ventana flotante visible ([#13](https://github.com/dquancruz/messaging-from-server/pull/13/dquancruz/messaging-from-server/actions/runs/34657796851))
+
 ## [0.4.1] - 2026-09-11
 ### Fixed
 - botón manual para actualizar lista de equipos ([#12](https://github.com/dquancruz/messaging-from-server/pull/12/dquancruz/messaging-from-server/actions/runs/34657506900))
