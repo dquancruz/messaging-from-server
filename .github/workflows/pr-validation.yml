@@ -17,35 +17,21 @@ jobs:
         with:
           fetch-depth: 0  # full history so we can analyze commits
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+          # 3.10 es el minimo del proyecto (es el de Ubuntu 22.04, ver
+          # CLAUDE.md) — se fija esta version, y no la mas reciente, para
+          # que el CI detecte si se cuela sintaxis de 3.11+.
+          python-version: '3.10'
 
       # ----------------------------------------------------------------
       # Tests
       # ----------------------------------------------------------------
+      # Solo biblioteca estandar (sin requirements.txt/pip install), tal
+      # como pide CLAUDE.md para servidor y agente.
       - name: Run tests
-        run: npm test
-        # If you have coverage: npm test -- --coverage
-
-      # ----------------------------------------------------------------
-      # Lint
-      # ----------------------------------------------------------------
-      - name: Run linter
-        run: npm run lint
-        # Adjust if your lint script has a different name
-
-      # ----------------------------------------------------------------
-      # Type check
-      # ----------------------------------------------------------------
-      - name: Type check
-        run: npm run type-check
-        # If you use tsc directly: npx tsc --noEmit
+        run: python -m unittest discover -s tests -v
 
   code-review:
     name: Automated Code Review
@@ -91,8 +77,8 @@ jobs:
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           DIFF=$(git diff "$BASE_SHA" "$HEAD_SHA")
 
-          # Warn (don't block) on console.log / debugger / TODO
-          if echo "$DIFF" | grep -E "^\+.*\b(console\.log|debugger)\b" ; then
-            echo "::warning::Leftover debug code (console.log/debugger) found"
+          # Warn (don't block) on leftover Python debug code
+          if echo "$DIFF" | grep -E "^\+.*\b(breakpoint\(\)|pdb\.set_trace)\b" ; then
+            echo "::warning::Leftover debug code (breakpoint()/pdb.set_trace) found"
           fi
           echo "Quality check complete."
