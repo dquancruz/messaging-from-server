@@ -7,6 +7,18 @@
 ### Security
 ### Deprecated
 
+## [0.5.0] - 2026-09-11
+### Added
+- comando para iniciar servidor y token del laboratorio en el repo ([#14](https://github.com/dquancruz/messaging-from-server/pull/14/dquancruz/messaging-from-server/actions/runs/34658835110))
+
+## [0.4.2] - 2026-09-11
+### Fixed
+- mostrar botón Chat en ventana flotante visible ([#13](https://github.com/dquancruz/messaging-from-server/pull/13/dquancruz/messaging-from-server/actions/runs/34657796851))
+
+## [0.4.1] - 2026-09-11
+### Fixed
+- botón manual para actualizar lista de equipos ([#12](https://github.com/dquancruz/messaging-from-server/pull/12/dquancruz/messaging-from-server/actions/runs/34657506900))
+
 ## [0.4.0] - 2026-09-11
 ### Added
 - chat 1:1 entre clientes con panel de moderación ([#11](https://github.com/dquancruz/messaging-from-server/pull/11/dquancruz/messaging-from-server/actions/runs/34637535954))

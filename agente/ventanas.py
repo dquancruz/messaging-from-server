@@ -154,7 +154,6 @@ class GestorVentanas:
         ventana = self._ventana_acceso_chat
         ventana.update_idletasks()
         margen = 16
-        ancho = ventana.winfo_width()
         alto = ventana.winfo_height()
         x = margen
         y = ventana.winfo_screenheight() - alto - margen - 48

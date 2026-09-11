@@ -46,9 +46,23 @@ externas ni `pip install` en los clientes.
 # Pruebas
 python -m unittest discover -s tests -v
 
-# Servidor en local
+# Servidor en local (desarrollo)
 python -m servidor --config servidor/config.json
+
+# Agente en local (desarrollo)
+python -m agente --config agente/config.json
 
 # Simular equipos falsos (sin las máquinas reales)
 python herramientas/simular_agentes.py --n 4
 ```
+
+En DC01, tras instalar con `instaladores/windows/instalar-servidor.ps1`:
+
+```powershell
+# Iniciar el servidor manualmente (consola visible)
+C:\CiberMensajeria\iniciar-servidor.ps1
+```
+
+El token compartido del laboratorio está en `servidor/config.json` y
+`agente/config.json` (`lab-lan-ciber-mensajeria`). Los instaladores de agente
+lo usan por defecto; no hace falta pasarlo a mano.

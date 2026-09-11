@@ -127,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--n", type=int, default=4, help="cuántos agentes falsos levantar")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--puerto", type=int, default=protocolo.PUERTO_AGENTES_POR_DEFECTO)
-    parser.add_argument("--token", default="cambia-este-token")
+    parser.add_argument("--token", default="lab-lan-ciber-mensajeria")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")

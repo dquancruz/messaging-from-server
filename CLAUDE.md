@@ -52,5 +52,9 @@ Gateway: 192.168.1.1. Todo es red local; no hay acceso desde internet.
 
 - Pruebas: `python -m unittest discover -s tests -v`
 - Servidor en local: `python -m servidor --config servidor/config.json`
+- Servidor en DC01 (tras instalar): `C:\CiberMensajeria\iniciar-servidor.ps1`
 - Agente en local: `python -m agente --config agente/config.json`
 - Simular equipos falsos: `python herramientas/simular_agentes.py --n 4`
+
+Token compartido del laboratorio (en `servidor/config.json` y `agente/config.json`):
+`lab-lan-ciber-mensajeria`. Los instaladores de agente lo toman del repositorio.
