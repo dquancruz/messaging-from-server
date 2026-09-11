@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import csv
+import io
 import json
 import logging
 from dataclasses import dataclass, field
@@ -180,6 +182,18 @@ class EstadoServidor:
             return []
         return self._historial[-ultimos:]
 
+    def historial_csv(self, ultimos: int = 500) -> str:
+        """Exporta el historial como texto CSV (UTF-8)."""
+        eventos = self.historial(ultimos=ultimos)
+        salida = io.StringIO()
+        columnas = ("cuando", "tipo", "equipo", "usuario", "ip", "so", "id_mensaje", "minutos")
+        escritor = csv.DictWriter(salida, fieldnames=columnas, extrasaction="ignore")
+        escritor.writeheader()
+        for evento in eventos:
+            fila = {col: evento.get(col, "") for col in columnas}
+            escritor.writerow(fila)
+        return salida.getvalue()
+
     # -- registro de equipos/conexiones ---------------------------------
 
     def registrar_conexion(
@@ -236,11 +250,37 @@ class EstadoServidor:
     def obtener_equipos(self) -> list[dict[str, Any]]:
         return [e.a_dict() for e in sorted(self.equipos.values(), key=lambda e: e.nombre)]
 
-    def obtener_equipos_api(self) -> list[dict[str, Any]]:
-        return [
+    def obtener_equipos_api(
+        self,
+        equipos_ad: list[dict[str, Any]] | None = None,
+    ) -> list[dict[str, Any]]:
+        resultado = [
             e.a_dict_api(self.sesiones)
             for e in sorted(self.equipos.values(), key=lambda e: e.nombre)
         ]
+        if not equipos_ad:
+            return resultado
+
+        conocidos = {e["nombre"] for e in resultado}
+        for ad in equipos_ad:
+            nombre = str(ad.get("nombre", "")).strip().lower()
+            if not nombre or nombre in conocidos:
+                continue
+            resultado.append(
+                {
+                    "nombre": nombre,
+                    "so": ad.get("so", "desconocido"),
+                    "conectado": False,
+                    "usuarios": [],
+                    "ip": "",
+                    "tiempo_restante": None,
+                    "bloqueado": False,
+                    "ultimo_mensaje_id": None,
+                    "ultimo_visto": None,
+                    "sin_agente": True,
+                }
+            )
+        return sorted(resultado, key=lambda e: e["nombre"])
 
     def iniciar_sesion(self, equipo: str, minutos: int) -> bool:
         nombre = equipo.strip().lower()

@@ -10,12 +10,16 @@ import argparse
 import asyncio
 import json
 import logging
+import ssl
 import sys
 from pathlib import Path
 
 from comun import protocolo
+from comun.tls import crear_contexto_servidor
+from servidor.ad import ConsultorAD
 from servidor.estado import EstadoServidor
 from servidor.panel_http import PanelHTTP
+from servidor.respaldo import EnviadorRespaldo
 from servidor.servidor import Servidor
 
 RUTA_CONFIG_POR_DEFECTO = Path(__file__).parent / "config.json"
@@ -53,19 +57,47 @@ def configurar_logs(directorio: Path) -> None:
     )
 
 
+def _crear_ssl_context(config: dict) -> ssl.SSLContext | None:
+    if not config.get("tls_habilitado"):
+        return None
+    certificado = config.get("tls_certificado")
+    clave = config.get("tls_clave")
+    if not certificado or not clave:
+        raise ErrorConfiguracion(
+            "si 'tls_habilitado' es true deben definirse 'tls_certificado' y 'tls_clave'"
+        )
+    return crear_contexto_servidor(certificado, clave)
+
+
 async def ejecutar(config: dict, directorio_datos: Path) -> None:
     estado = EstadoServidor(
         archivo_historial=directorio_datos / "historial.jsonl",
         avisos_minutos=config.get("avisos_minutos"),
         texto_fin_sesion=config.get("texto_fin_sesion", "Tu tiempo terminó, pasa a caja."),
     )
+    ssl_context = _crear_ssl_context(config)
     servidor = Servidor(
         estado=estado,
         token=config["token"],
         host=config.get("host_agentes", "0.0.0.0"),
         puerto=config.get("puerto_agentes", protocolo.PUERTO_AGENTES_POR_DEFECTO),
+        ssl_context=ssl_context,
     )
     servidor_asyncio = await servidor.iniciar()
+
+    consultor_ad = ConsultorAD(
+        habilitado=bool(config.get("ad_habilitado")),
+        dominio=config.get("ad_dominio", "lab.lan"),
+        filtro=config.get("ad_filtro", "*"),
+        archivo_respaldo=config.get("ad_archivo_respaldo"),
+        intervalo_segundos=int(config.get("ad_intervalo_segundos", 300)),
+    )
+    enviador_respaldo = EnviadorRespaldo(
+        habilitado=bool(config.get("respaldo_habilitado")),
+        dominio=config.get("ad_dominio", "lab.lan"),
+        usuario_ssh=config.get("respaldo_ssh_usuario", "root"),
+        timeout_segundos=int(config.get("respaldo_timeout_segundos", 15)),
+    )
 
     host_panel = config.get("host_panel", "127.0.0.1")
     password_panel = config.get("password_panel")
@@ -81,6 +113,8 @@ async def ejecutar(config: dict, directorio_datos: Path) -> None:
         host=host_panel,
         puerto=config.get("puerto_panel", protocolo.PUERTO_PANEL_POR_DEFECTO),
         password=password_panel,
+        consultor_ad=consultor_ad,
+        enviador_respaldo=enviador_respaldo,
     )
     panel.iniciar()
 

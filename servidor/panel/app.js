@@ -14,6 +14,7 @@
   var campoTexto = document.getElementById("texto");
   var campoNivel = document.getElementById("nivel");
   var estadoEnvio = document.getElementById("estado-envio");
+  var usarRespaldo = document.getElementById("usar-respaldo");
   var equiposActuales = [];
 
   function formatearHora(iso) {
@@ -156,9 +157,12 @@
     var filas = equipos.map(function (eq) {
       var icono = iconosSO[eq.so] || "💻";
       var usuarios = (eq.usuarios || []).join(", ") || "—";
-      var claseFila = eq.conectado ? "" : "desconectado";
+      var sinAgente = !!eq.sin_agente;
+      var claseFila = sinAgente ? "sin-agente" : (eq.conectado ? "" : "desconectado");
       var estado;
-      if (eq.bloqueado) {
+      if (sinAgente) {
+        estado = '<span class="estado-badge sin-agente">Sin agente</span>';
+      } else if (eq.bloqueado) {
         estado = '<span class="estado-badge bloqueado">Bloqueado</span>';
       } else if (eq.conectado) {
         estado = '<span class="estado-badge conectado">Conectado</span>';
@@ -175,7 +179,8 @@
         visto = "—";
       }
 
-      var deshabilitado = eq.conectado ? "" : " disabled";
+      var seleccionable = eq.conectado || (sinAgente && usarRespaldo.checked);
+      var deshabilitado = seleccionable ? "" : " disabled";
       var tiempo = formatearTiempo(eq.tiempo_restante);
 
       return (
@@ -282,7 +287,12 @@
     return fetch("/api/mensaje", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ destinos: destinos, texto: texto, nivel: nivel })
+      body: JSON.stringify({
+        destinos: destinos,
+        texto: texto,
+        nivel: nivel,
+        usar_respaldo: usarRespaldo.checked
+      })
     })
       .then(function (resp) {
         return resp.json().then(function (datos) {
@@ -293,8 +303,19 @@
         });
       })
       .then(function (datos) {
-        estadoEnvio.textContent =
+        var textoEstado =
           "Enviado a " + datos.enviados + " equipo(s): " + (datos.equipos || []).join(", ");
+        if (datos.respaldo && datos.respaldo.length) {
+          var okRespaldo = datos.respaldo.filter(function (r) { return r.ok; });
+          var falloRespaldo = datos.respaldo.filter(function (r) { return !r.ok; });
+          if (okRespaldo.length) {
+            textoEstado += ". Respaldo OK: " + okRespaldo.map(function (r) { return r.equipo; }).join(", ");
+          }
+          if (falloRespaldo.length) {
+            textoEstado += ". Respaldo falló: " + falloRespaldo.map(function (r) { return r.equipo; }).join(", ");
+          }
+        }
+        estadoEnvio.textContent = textoEstado;
         estadoEnvio.className = "estado-envio ok";
         actualizarEquipos();
       })
@@ -310,6 +331,10 @@
     });
   });
 
+  usarRespaldo.addEventListener("change", function () {
+    renderizarEquipos(equiposActuales);
+  });
+
   document.querySelectorAll(".atajo").forEach(function (boton) {
     boton.addEventListener("click", function () {
       campoTexto.value = boton.getAttribute("data-texto");
@@ -322,7 +347,9 @@
     ev.preventDefault();
     var seleccionados = obtenerSeleccionados();
     if (!seleccionados.length) {
-      estadoEnvio.textContent = "Selecciona al menos un equipo conectado.";
+      estadoEnvio.textContent = usarRespaldo.checked
+        ? "Selecciona al menos un equipo conectado o sin agente."
+        : "Selecciona al menos un equipo conectado.";
       estadoEnvio.className = "estado-envio error";
       return;
     }

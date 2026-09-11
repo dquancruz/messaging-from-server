@@ -19,6 +19,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 from comun import protocolo
+from servidor.ad import ConsultorAD
+from servidor.respaldo import EnviadorRespaldo
 from servidor.servidor import Servidor
 
 registrador = logging.getLogger("servidor.panel")
@@ -37,12 +39,16 @@ class PanelHTTP:
         host: str = "127.0.0.1",
         puerto: int = protocolo.PUERTO_PANEL_POR_DEFECTO,
         password: str | None = None,
+        consultor_ad: ConsultorAD | None = None,
+        enviador_respaldo: EnviadorRespaldo | None = None,
     ) -> None:
         self.servidor = servidor
         self.loop = loop
         self.host = host
         self.puerto = puerto
         self.password = password
+        self.consultor_ad = consultor_ad
+        self.enviador_respaldo = enviador_respaldo
         self._httpd: ThreadingHTTPServer | None = None
         self._hilo: threading.Thread | None = None
 
@@ -83,9 +89,16 @@ def _crear_handler(panel: PanelHTTP) -> type[BaseHTTPRequestHandler]:
                 return
             ruta = urlparse(self.path).path
             if ruta == "/api/equipos":
-                self._responder_json(panel.servidor.estado.obtener_equipos_api())
+                equipos_ad = (
+                    panel.consultor_ad.listar_equipos()
+                    if panel.consultor_ad is not None
+                    else None
+                )
+                self._responder_json(panel.servidor.estado.obtener_equipos_api(equipos_ad))
             elif ruta == "/api/historial":
                 self._responder_json(panel.servidor.estado.historial(ultimos=100))
+            elif ruta == "/api/historial.csv":
+                self._responder_csv(panel.servidor.estado.historial_csv())
             elif ruta == "/" or ruta.startswith("/panel/"):
                 self._servir_estatico(ruta)
             else:
@@ -160,6 +173,7 @@ def _crear_handler(panel: PanelHTTP) -> type[BaseHTTPRequestHandler]:
             destinos = cuerpo.get("destinos")
             texto = cuerpo.get("texto", "")
             nivel = cuerpo.get("nivel", "info")
+            usar_respaldo = bool(cuerpo.get("usar_respaldo", False))
 
             if destinos is None:
                 self._enviar_error(HTTPStatus.BAD_REQUEST, "falta el campo 'destinos'")
@@ -188,6 +202,13 @@ def _crear_handler(panel: PanelHTTP) -> type[BaseHTTPRequestHandler]:
                     destinos=destinos,
                     texto=texto.strip(),
                     nivel=nivel,
+                    usar_respaldo=usar_respaldo,
+                    enviador_respaldo=panel.enviador_respaldo,
+                    equipos_ad=(
+                        panel.consultor_ad.listar_equipos()
+                        if panel.consultor_ad is not None
+                        else None
+                    ),
                 ),
                 panel.loop,
             )
@@ -252,6 +273,18 @@ def _crear_handler(panel: PanelHTTP) -> type[BaseHTTPRequestHandler]:
             cuerpo = json.dumps(datos, ensure_ascii=False).encode("utf-8")
             self.send_response(codigo)
             self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(cuerpo)))
+            self.end_headers()
+            self.wfile.write(cuerpo)
+
+        def _responder_csv(self, contenido: str) -> None:
+            cuerpo = contenido.encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header(
+                "Content-Disposition",
+                'attachment; filename="historial-ciber-mensajeria.csv"',
+            )
             self.send_header("Content-Length", str(len(cuerpo)))
             self.end_headers()
             self.wfile.write(cuerpo)
