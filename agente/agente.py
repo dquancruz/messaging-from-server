@@ -5,13 +5,16 @@ from __future__ import annotations
 import logging
 import queue
 import socket
+import ssl
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 from agente import VERSION_AGENTE
 from agente.plataforma import mensaje_hola, resolver_servidor
 from comun import protocolo
+from comun.tls import crear_contexto_cliente
 
 registrador = logging.getLogger("agente.agente")
 
@@ -124,6 +127,10 @@ class ClienteRed(threading.Thread):
         registrador.info("conectando a %s:%s", host, puerto)
 
         sock = socket.create_connection((host, puerto), timeout=10)
+        if self.config.get("tls_habilitado"):
+            ca = self.config.get("tls_ca")
+            contexto = crear_contexto_cliente(Path(ca) if ca else None)
+            sock = contexto.wrap_socket(sock, server_hostname=host)
         sock.settimeout(TIMEOUT_LECTURA)
         self._socket = sock
 

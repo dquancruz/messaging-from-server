@@ -1,0 +1,5 @@
+[
+  {"nombre": "win10-01", "so": "windows"},
+  {"nombre": "win11-01", "so": "windows"},
+  {"nombre": "debian-01", "so": "linux"}
+]

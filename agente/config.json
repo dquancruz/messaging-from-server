@@ -3,5 +3,7 @@
   "servidor_respaldo": "192.168.1.10",
   "puerto": 5050,
   "token": "cambia-este-token",
-  "bloqueo_nativo": false
+  "bloqueo_nativo": false,
+  "tls_habilitado": false,
+  "tls_ca": null
 }

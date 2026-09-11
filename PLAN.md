@@ -9,7 +9,7 @@
 - [x] Fase 4 — Sesiones con tiempo (lo "cibercafé")
 - [x] Fase 5 — Instaladores por sistema operativo
 - [x] Fase 6 — Pruebas en la red real
-- [ ] Fase 7 — Extras (opcionales)
+- [x] Fase 7 — Extras (opcionales)
 - [ ] Fase 8 — Chat 1:1 entre clientes
 
 ---

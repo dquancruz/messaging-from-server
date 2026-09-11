@@ -118,6 +118,14 @@ class PruebasPanelHTTP(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status, 200)
         self.assertTrue(any(e["tipo"] == "conectado" for e in datos))
 
+    def test_api_historial_csv(self):
+        req = urllib.request.Request(f"{self.base_url}/api/historial.csv")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            cuerpo = resp.read().decode("utf-8")
+        self.assertEqual(resp.status, 200)
+        self.assertIn("cuando,tipo,equipo", cuerpo)
+        self.assertIn("conectado", cuerpo)
+
     def test_api_mensaje_destinos_invalidos(self):
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             _peticion(

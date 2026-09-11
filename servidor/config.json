@@ -6,5 +6,16 @@
   "password_panel": "cambia-esta-clave",
   "token": "cambia-este-token",
   "avisos_minutos": [5, 1],
-  "texto_fin_sesion": "Tu tiempo terminó, pasa a caja."
+  "texto_fin_sesion": "Tu tiempo terminó, pasa a caja.",
+  "ad_habilitado": false,
+  "ad_dominio": "lab.lan",
+  "ad_filtro": "*",
+  "ad_archivo_respaldo": null,
+  "ad_intervalo_segundos": 300,
+  "respaldo_habilitado": false,
+  "respaldo_ssh_usuario": "root",
+  "respaldo_timeout_segundos": 15,
+  "tls_habilitado": false,
+  "tls_certificado": null,
+  "tls_clave": null
 }
