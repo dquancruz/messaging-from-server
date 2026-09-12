@@ -274,7 +274,7 @@ class VentanaChat:
         return "break"
 
 
-def crear_acceso_chat(root: tk.Tk, abrir) -> tk.Toplevel:
+def crear_acceso_chat(root: tk.Misc, abrir) -> tk.Toplevel:
     """Botón flotante para abrir el chat (ventana propia, no en la raíz oculta)."""
     ventana = tk.Toplevel(root)
     ventana.title("")
