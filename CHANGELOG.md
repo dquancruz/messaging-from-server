@@ -9,6 +9,10 @@
 ### Security
 ### Deprecated
 
+## [0.5.3] - 2026-09-12
+### Fixed
+- aceptar JSON con BOM UTF-8 tras reinstalar servidor ([#17](https://github.com/dquancruz/messaging-from-server/pull/17/dquancruz/messaging-from-server/actions/runs/34660490756), UTF-8)
+
 ## [0.5.2] - 2026-09-11
 ### Fixed
 - conservar selección de interlocutor al actualizar lista ([#16](https://github.com/dquancruz/messaging-from-server/pull/16/dquancruz/messaging-from-server/actions/runs/34659913447))
