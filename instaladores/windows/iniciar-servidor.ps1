@@ -54,7 +54,24 @@ if ($mayor -lt 3 -or ($mayor -eq 3 -and $menor -lt 10)) {
 
 New-Item -ItemType Directory -Force -Path $datos | Out-Null
 
+$configObj = Get-Content -Path $config -Raw | ConvertFrom-Json
+$nombreTarea = "CiberMensajeriaServidor"
+$tarea = Get-ScheduledTask -TaskName $nombreTarea -ErrorAction SilentlyContinue
+if ($tarea -and $tarea.State -eq "Running") {
+    Write-Host ""
+    Write-Host "AVISO: la tarea programada '$nombreTarea' ya está corriendo." -ForegroundColor Red
+    Write-Host "Si arranca otra copia aquí, los agentes pueden conectar a la instancia" -ForegroundColor Yellow
+    Write-Host "antigua (token distinto). Deténgala primero:" -ForegroundColor Yellow
+    Write-Host "  Stop-ScheduledTask -TaskName $nombreTarea" -ForegroundColor White
+    Write-Host ""
+    $continuar = Read-Host "¿Continuar de todos modos? (s/N)"
+    if ($continuar -notmatch '^[sS]') {
+        exit 1
+    }
+}
+
 Write-Host "Iniciando servidor (config=$config, datos=$datos)..." -ForegroundColor Cyan
+Write-Host "Token de agentes: $($configObj.token)" -ForegroundColor Yellow
 Write-Host "Panel web: http://localhost:8080" -ForegroundColor Green
 Write-Host "Pulse Ctrl+C para detener." -ForegroundColor DarkGray
 Write-Host ""

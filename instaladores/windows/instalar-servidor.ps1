@@ -72,7 +72,11 @@ if (-not (Test-Path $configOrigen)) {
     exit 1
 }
 Copy-Item -Path $configOrigen -Destination $config -Force
-$configObj = Get-Content -Path $config -Raw | ConvertFrom-Json
+# PowerShell 5.1 puede dejar BOM en JSON; Python (versiones antiguas) falla al leerlo.
+$jsonConfig = Get-Content -Path $config -Raw
+$utf8SinBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($config, $jsonConfig, $utf8SinBom)
+$configObj = $jsonConfig | ConvertFrom-Json
 $token = $configObj.token
 $passwordPanel = $configObj.password_panel
 $passwordModerador = $configObj.password_moderador
@@ -99,6 +103,7 @@ $trigger = New-ScheduledTaskTrigger -AtStartup
 $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 
+Stop-ScheduledTask -TaskName $nombreTarea -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName $nombreTarea -Confirm:$false -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName $nombreTarea -Action $accion -Trigger $trigger -Principal $principal -Settings $settings -Description "Servidor de Ciber Mensajeria" | Out-Null
 Start-ScheduledTask -TaskName $nombreTarea
@@ -130,5 +135,8 @@ Write-Host "Logs:      $datos\servidor.log"
 Write-Host ""
 Write-Host "Para iniciar el servidor manualmente (consola visible):" -ForegroundColor Cyan
 Write-Host "  $destino\iniciar-servidor.ps1"
+Write-Host ""
+Write-Host "No use 'py -m servidor --config config.json' desde otra carpeta:" -ForegroundColor Yellow
+Write-Host "  puede cargar un config.json distinto al de $config."
 Write-Host ""
 Write-Host "Los instaladores de agente usan el mismo token del repositorio por defecto."

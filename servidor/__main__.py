@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
 
     configurar_logs(args.datos)
     logger = logging.getLogger("servidor")
-    logger.info("iniciando servidor (config=%s)", args.config)
+    logger.info("iniciando servidor (config=%s, token=%s)", args.config, config["token"])
     try:
         asyncio.run(ejecutar(config, args.datos))
     except KeyboardInterrupt:
