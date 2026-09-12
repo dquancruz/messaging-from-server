@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  var INTERVALO_MS = 2000;
   var iconosSO = {
     windows: "🪟",
     linux: "🐧",
@@ -16,6 +15,7 @@
   var estadoEnvio = document.getElementById("estado-envio");
   var usarRespaldo = document.getElementById("usar-respaldo");
   var chatHabilitado = document.getElementById("chat-habilitado");
+  var btnActualizar = document.getElementById("btn-actualizar-equipos");
   var equiposActuales = [];
 
   function formatearHora(iso) {
@@ -147,7 +147,14 @@
     return html;
   }
 
+  function sincronizarSeleccionarTodos() {
+    var habilitados = document.querySelectorAll(".sel-equipo:not(:disabled)");
+    var marcados = document.querySelectorAll(".sel-equipo:not(:disabled):checked");
+    seleccionarTodos.checked = habilitados.length > 0 && habilitados.length === marcados.length;
+  }
+
   function renderizarEquipos(equipos) {
+    var seleccionPrevios = new Set(obtenerSeleccionados());
     equiposActuales = equipos;
     if (!equipos.length) {
       cuerpoEquipos.innerHTML =
@@ -249,11 +256,14 @@
       });
     });
 
-    if (seleccionarTodos.checked) {
-      document.querySelectorAll(".sel-equipo:not(:disabled)").forEach(function (cb) {
+    document.querySelectorAll(".sel-equipo").forEach(function (cb) {
+      var nombre = cb.getAttribute("data-nombre");
+      if (!cb.disabled && (seleccionPrevios.has(nombre) || seleccionarTodos.checked)) {
         cb.checked = true;
-      });
-    }
+      }
+    });
+
+    sincronizarSeleccionarTodos();
   }
 
   function obtenerSeleccionados() {
@@ -265,7 +275,7 @@
   }
 
   function actualizarEquipos() {
-    fetch("/api/equipos")
+    return fetch("/api/equipos")
       .then(function (resp) {
         if (!resp.ok) {
           throw new Error("No se pudo cargar la lista de equipos");
@@ -391,7 +401,15 @@
       });
   });
 
+  btnActualizar.addEventListener("click", function () {
+    btnActualizar.disabled = true;
+    btnActualizar.textContent = "Actualizando…";
+    actualizarEquipos().finally(function () {
+      btnActualizar.disabled = false;
+      btnActualizar.textContent = "Actualizar lista";
+    });
+  });
+
   actualizarEquipos();
   actualizarEstadoChat();
-  setInterval(actualizarEquipos, INTERVALO_MS);
 })();

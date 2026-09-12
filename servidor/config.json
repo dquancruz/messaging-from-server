@@ -3,8 +3,8 @@
   "puerto_agentes": 5050,
   "host_panel": "127.0.0.1",
   "puerto_panel": 8080,
-  "password_panel": "cambia-esta-clave",
-  "token": "cambia-este-token",
+  "password_panel": "caja-lab",
+  "token": "lab-lan-ciber-mensajeria",
   "avisos_minutos": [5, 1],
   "texto_fin_sesion": "Tu tiempo terminó, pasa a caja.",
   "ad_habilitado": false,
@@ -20,6 +20,6 @@
   "tls_clave": null,
   "chat_habilitado": true,
   "usuario_moderador": "moderador",
-  "password_moderador": "cambia-esta-clave-moderador",
+  "password_moderador": "moderador-lab",
   "chat_limite_por_conversacion": 500
 }

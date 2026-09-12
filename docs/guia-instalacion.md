@@ -6,8 +6,11 @@ Esta guía explica cómo instalar el servidor y los agentes en el laboratorio
 ## Resumen
 
 1. Instale el **servidor** en DC01 (Windows Server 2022).
-2. Copie el **token** que muestra el instalador.
-3. Instale el **agente** en cada equipo cliente con ese token.
+2. Instale el **agente** en cada equipo cliente.
+
+El **token** compartido del laboratorio ya está en el repositorio
+(`servidor/config.json` y `agente/config.json`): `lab-lan-ciber-mensajeria`.
+Los instaladores lo copian automáticamente; no hace falta pasarlo a mano.
 
 | Componente | Sistema | Script |
 |---|---|---|
@@ -45,24 +48,48 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 4. El script:
    - Comprueba que Python 3.10+ esté instalado.
    - Copia los archivos a `C:\CiberMensajeria\`.
-   - Genera un **token aleatorio** y lo muestra en pantalla.
+   - Copia la configuración del repositorio (token, contraseñas de caja y moderación).
    - Abre el puerto **TCP 5050** en el firewall (perfiles Dominio y Privado).
    - Crea una tarea programada que arranca el servidor al iniciar Windows.
+   - Copia `iniciar-servidor.ps1` para arrancar el servidor manualmente.
    - Crea un acceso directo en el escritorio al panel: `http://localhost:8080`.
 
-5. **Guarde el token** en un lugar seguro. Lo necesitará para cada agente.
+5. Al final muestra el token, las contraseñas del panel y la ruta de inicio manual.
 
 > **Actualizar a una versión nueva:** volver a ejecutar `instalar-servidor.ps1`
-> **sobrescribe** `C:\CiberMensajeria\config.json` con un token y contraseñas
-> nuevos. Si ya tiene agentes instalados, anote el token actual antes de
-> actualizar, o edite solo los archivos `.py` sin volver a correr el instalador
-> completo.
+> **sobrescribe** `C:\CiberMensajeria\config.json` con la copia del repositorio
+> (mismo token compartido del laboratorio). Si editó ese archivo en DC01,
+> guarde una copia antes de actualizar, o copie solo los `.py` sin volver a
+> correr el instalador completo.
 
 ### Si falta Python en DC01
 
 1. Descargue el instalador desde https://www.python.org/downloads/
 2. Marque **Install for all users** y **Add python.exe to PATH**.
 3. Vuelva a ejecutar `instalar-servidor.ps1`.
+
+### Iniciar el servidor manualmente
+
+Si necesita arrancar el servidor en una consola visible (por ejemplo tras
+actualizar archivos o para ver errores en pantalla):
+
+```powershell
+C:\CiberMensajeria\iniciar-servidor.ps1
+```
+
+También puede ejecutarlo desde el repositorio antes de instalar (desarrollo
+en DC01):
+
+```powershell
+cd C:\ruta\al\proyecto\instaladores\windows
+.\iniciar-servidor.ps1 -Destino C:\CiberMensajeria
+```
+
+En desarrollo local (cualquier SO):
+
+```bash
+python -m servidor --config servidor/config.json
+```
 
 ### Comprobar que funciona
 
@@ -78,13 +105,15 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 1. Copie el proyecto al equipo (o solo la carpeta `instaladores\windows` y el código fuente).
 2. Abra **PowerShell como Administrador**.
-3. Ejecute (sustituya el token por el del servidor):
+3. Ejecute:
 
 ```powershell
 cd C:\ruta\al\proyecto\instaladores\windows
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\instalar-agente.ps1 -Token "PEGUE_AQUI_EL_TOKEN"
+.\instalar-agente.ps1
 ```
+
+   Si necesita otro token: `.\instalar-agente.ps1 -Token "otro-token"`.
 
 4. El script:
    - Comprueba Python (intenta instalarlo con `winget` si está disponible).
@@ -111,7 +140,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ```bash
 cd /ruta/al/proyecto/instaladores/linux
-sudo ./instalar-agente.sh --token "PEGUE_AQUI_EL_TOKEN"
+sudo ./instalar-agente.sh
 ```
 
 3. El script instala `python3` y `python3-tk`, copia a `/opt/ciber-mensajeria/`,
@@ -124,7 +153,7 @@ Si no hay entorno gráfico, el instalador detecta el caso y configura un **servi
 systemd** que entrega los avisos con `wall` en todas las terminales.
 
 ```bash
-sudo ./instalar-agente.sh --token "PEGUE_AQUI_EL_TOKEN" --modo consola
+sudo ./instalar-agente.sh --modo consola
 ```
 
 Puede forzar el modo con `--modo grafico` o `--modo consola`.
@@ -154,7 +183,7 @@ sudo ./desinstalar-agente.sh
 
 ```bash
 cd /ruta/al/proyecto/instaladores/macos
-sudo ./instalar-agente.sh --token "PEGUE_AQUI_EL_TOKEN"
+sudo ./instalar-agente.sh
 ```
 
 4. El script:
@@ -180,7 +209,7 @@ Los instaladores crean un JSON con valores por defecto del laboratorio:
 | `servidor` | `dc01.lab.lan` |
 | `servidor_respaldo` | `192.168.1.10` |
 | `puerto` | `5050` |
-| `token` | el que generó / pasó el instalador |
+| `token` | `lab-lan-ciber-mensajeria` (del repositorio) |
 
 En Windows el archivo está en `C:\ProgramData\CiberMensajeria\agente.json`.
 En Linux: `/etc/ciber-mensajeria/agente.json`.
@@ -211,8 +240,10 @@ cuenta de moderador definida en `servidor/config.json`:
 - `usuario_moderador` (por defecto: `moderador`)
 - `password_moderador` (contraseña distinta a `password_panel`)
 
-El instalador del servidor genera una contraseña aleatoria para el
-moderador y la muestra en pantalla junto con el token de agentes.
+Las contraseñas por defecto del laboratorio están en `servidor/config.json`:
+
+- Panel de caja: `caja-lab`
+- Moderación: usuario `moderador`, contraseña `moderador-lab`
 
 ### Debian sin escritorio
 

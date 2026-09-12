@@ -1,13 +1,13 @@
 ﻿# Instala el agente de Ciber Mensajería en Windows 10/11.
 #
 # Uso (PowerShell como Administrador):
-#   .\instalar-agente.ps1 -Token EL_TOKEN_DEL_SERVIDOR
+#   .\instalar-agente.ps1
+#   .\instalar-agente.ps1 -Token OTRO_TOKEN
 
 #Requires -RunAsAdministrator
 
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$Token,
+    [string]$Token = "",
 
     [string]$Servidor = "dc01.lab.lan",
     [string]$Respaldo = "192.168.1.10"
@@ -51,6 +51,17 @@ function Instalar-PythonConWinget {
     return ($LASTEXITCODE -eq 0)
 }
 
+$raizProyecto = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+if (-not $Token) {
+    $configAgenteOrigen = Join-Path $raizProyecto "agente\config.json"
+    if (-not (Test-Path $configAgenteOrigen)) {
+        Write-Host "No se encontró $configAgenteOrigen y no se pasó -Token." -ForegroundColor Red
+        exit 1
+    }
+    $Token = (Get-Content -Path $configAgenteOrigen -Raw | ConvertFrom-Json).token
+    Write-Host "Usando token del repositorio: $Token"
+}
+
 Write-Paso "Paso 1/5: verificar Python 3.10+"
 $python = Buscar-Python | Select-Object -First 1
 if (-not $python) {
@@ -80,7 +91,6 @@ if (-not (Test-Path $pythonw)) {
 }
 Write-Host "Python $($python.Version) en $($python.Ejecutable)"
 
-$raizProyecto = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $destino = "C:\Program Files\CiberMensajeria"
 $configDir = "C:\ProgramData\CiberMensajeria"
 $config = Join-Path $configDir "agente.json"

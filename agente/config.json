@@ -2,7 +2,7 @@
   "servidor": "dc01.lab.lan",
   "servidor_respaldo": "192.168.1.10",
   "puerto": 5050,
-  "token": "cambia-este-token",
+  "token": "lab-lan-ciber-mensajeria",
   "bloqueo_nativo": false,
   "tls_habilitado": false,
   "tls_ca": null

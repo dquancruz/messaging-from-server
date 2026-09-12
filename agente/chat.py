@@ -9,6 +9,7 @@ from agente.chat_util import (
     MARCA_ENVIANDO,
     confirmar_mensaje_en_historial,
     fusionar_historial_con_pendientes,
+    indice_interlocutor,
     revertir_pendiente_en_historial,
 )
 
@@ -181,6 +182,11 @@ class VentanaChat:
                 etiqueta += " [desconectado]"
             self._lista_equipos.insert(tk.END, etiqueta)
 
+        indice = indice_interlocutor(self._equipos, self._interlocutor)
+        if indice is not None:
+            self._lista_equipos.selection_set(indice)
+            self._lista_equipos.see(indice)
+
     def _al_seleccionar_equipo(self, _evento: object) -> None:
         if self._lista_equipos is None:
             return
@@ -268,10 +274,16 @@ class VentanaChat:
         return "break"
 
 
-def crear_acceso_chat(root: tk.Tk, abrir) -> tk.Button:
-    """Botón flotante para abrir el chat."""
-    boton = tk.Button(
-        root,
+def crear_acceso_chat(root: tk.Tk, abrir) -> tk.Toplevel:
+    """Botón flotante para abrir el chat (ventana propia, no en la raíz oculta)."""
+    ventana = tk.Toplevel(root)
+    ventana.title("")
+    ventana.overrideredirect(True)
+    ventana.attributes("-topmost", True)
+    ventana.configure(bg="#2563eb")
+
+    tk.Button(
+        ventana,
         text="Chat",
         font=tkfont.Font(family="Segoe UI", size=11, weight="bold"),
         command=abrir,
@@ -283,5 +295,8 @@ def crear_acceso_chat(root: tk.Tk, abrir) -> tk.Button:
         activeforeground="#ffffff",
         relief=tk.FLAT,
         cursor="hand2",
-    )
-    return boton
+        borderwidth=0,
+        highlightthickness=0,
+    ).pack()
+
+    return ventana
