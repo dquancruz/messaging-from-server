@@ -152,6 +152,19 @@ class PruebasChatUtil(unittest.TestCase):
         self.assertIsNone(indice_interlocutor(equipos, None))
 
 
+class PruebasBotonChatAgente(unittest.TestCase):
+    def test_acceso_chat_no_anida_toplevels(self):
+        """El botón debe vivir en un solo Toplevel hijo de la raíz oculta."""
+        ruta = Path(__file__).resolve().parents[1] / "agente" / "ventanas.py"
+        codigo = ruta.read_text(encoding="utf-8")
+        self.assertIn(
+            "self._ventana_acceso_chat = crear_acceso_chat(root", codigo
+        )
+        self.assertNotIn("crear_acceso_chat(self._ventana_acceso_chat", codigo)
+        self.assertNotIn("_boton_chat.pack()", codigo)
+        self.assertIn("_posicionar_boton_chat", codigo)
+
+
 class PruebasManejoMensajesChat(unittest.TestCase):
     def test_chat_enviado_llega_a_la_cola_ui(self):
         cola_ui: queue.Queue = queue.Queue()

@@ -158,11 +158,16 @@ class GestorVentanas:
     def _posicionar_boton_chat(self) -> None:
         ventana = self._ventana_acceso_chat
         ventana.update_idletasks()
-        margen = 16
         alto = ventana.winfo_height()
+        if alto <= 1:
+            self.root.after(100, self._posicionar_boton_chat)
+            return
+        margen = 16
         x = margen
         y = ventana.winfo_screenheight() - alto - margen - 48
         ventana.geometry(f"+{x}+{y}")
+        ventana.deiconify()
+        ventana.lift()
 
     def _posicionar_contador(self) -> None:
         if self._contador is None:
