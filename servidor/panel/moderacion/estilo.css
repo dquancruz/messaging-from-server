@@ -90,6 +90,11 @@ body {
   animation: pulso 2s ease-in-out infinite;
 }
 
+.indicador-actualizacion.error .punto-vivo {
+  background: #fca5a5;
+  animation: none;
+}
+
 @keyframes pulso {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(0.85); }

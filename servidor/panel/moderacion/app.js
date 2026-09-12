@@ -6,16 +6,13 @@
   var listaMensajes = document.getElementById("lista-mensajes");
   var etiquetaConversacion = document.getElementById("etiqueta-conversacion");
   var textoActualizacion = document.getElementById("texto-actualizacion");
+  var indicadorActualizacion = document.getElementById("indicador-actualizacion");
   var conversacionActiva = null;
 
-  function marcarActualizacion(ok) {
-    var ahora = new Date().toLocaleTimeString("es-MX", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit"
-    });
-    textoActualizacion.textContent = ok ? "Actualizado " + ahora : "Error de conexión";
-  }
+  var indicador = PanelComun.crearIndicadorActualizacion(
+    textoActualizacion,
+    indicadorActualizacion
+  );
 
   function formatearHora(iso) {
     if (!iso) {
@@ -118,12 +115,12 @@
       })
       .then(function (datos) {
         renderizarConversaciones(datos);
-        marcarActualizacion(true);
+        indicador.marcar(true);
       })
       .catch(function () {
         cuerpoConversaciones.innerHTML =
           '<tr><td colspan="3" class="vacio">Error al cargar conversaciones</td></tr>';
-        marcarActualizacion(false);
+        indicador.marcar(false);
       });
   }
 

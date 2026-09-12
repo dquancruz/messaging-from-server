@@ -28,7 +28,13 @@
   var statBloqueados = document.getElementById("stat-bloqueados");
   var statTotal = document.getElementById("stat-total");
 
+  var indicador = PanelComun.crearIndicadorActualizacion(
+    textoActualizacion,
+    indicadorActualizacion
+  );
+
   var equiposActuales = [];
+  var minutosLibresPorEquipo = {};
   var actualizando = false;
 
   function formatearHora(iso) {
@@ -109,16 +115,6 @@
     statTotal.textContent = equipos.length;
   }
 
-  function marcarActualizacion(ok) {
-    var ahora = new Date().toLocaleTimeString("es-MX", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit"
-    });
-    textoActualizacion.textContent = ok ? "Actualizado " + ahora : "Error de conexión";
-    indicadorActualizacion.classList.toggle("error", !ok);
-  }
-
   function actualizarContadorSeleccion() {
     var n = obtenerSeleccionados().length;
     var texto = n === 0
@@ -136,6 +132,29 @@
     } else {
       badgeSeleccion.hidden = true;
     }
+  }
+
+  function capturarMinutosLibres() {
+    document.querySelectorAll(".input-minutos").forEach(function (input) {
+      minutosLibresPorEquipo[input.getAttribute("data-equipo")] = input.value;
+    });
+  }
+
+  function minutosLibresPara(equipo) {
+    return minutosLibresPorEquipo[equipo] || "20";
+  }
+
+  function nombresEquipos(equipos) {
+    return equipos.map(function (eq) {
+      return eq.nombre;
+    }).sort().join("\0");
+  }
+
+  function mismosEquipos(a, b) {
+    if (!a.length || !b.length) {
+      return a.length === b.length;
+    }
+    return nombresEquipos(a) === nombresEquipos(b);
   }
 
   function llamarApi(ruta, cuerpo) {
@@ -173,20 +192,44 @@
     return llamarApi(ruta, cuerpo)
       .then(function () {
         mostrarToast("Sesión actualizada para " + equipo, "ok");
-        return actualizarEquipos();
+        return actualizarEquipos({ forzarRender: true });
       })
       .catch(function (err) {
         mostrarToast(err.message, "error");
       });
   }
 
-  function botonesSesion(eq) {
+  function htmlEstado(eq) {
+    if (eq.sin_agente) {
+      return '<span class="estado-badge sin-agente">Sin agente</span>';
+    }
+    if (eq.bloqueado) {
+      return '<span class="estado-badge bloqueado">Bloqueado</span>';
+    }
+    if (eq.conectado) {
+      return '<span class="estado-badge conectado">Conectado</span>';
+    }
+    return '<span class="estado-badge desconectado">Desconectado</span>';
+  }
+
+  function htmlVisto(eq) {
+    if (eq.ultimo_visto) {
+      return '<span class="visto-hora">✓ ' + formatearHora(eq.ultimo_visto) + "</span>";
+    }
+    if (eq.ultimo_mensaje_id && eq.conectado) {
+      return '<span class="visto-pendiente">Esperando…</span>';
+    }
+    return "—";
+  }
+
+  function htmlBotonesSesion(eq) {
     if (!eq.conectado) {
       return '<span class="sesion-offline">Sin conexión</span>';
     }
 
     var nombre = eq.nombre;
     var bloqueado = eq.bloqueado;
+    var minutos = minutosLibresPara(nombre);
     var html =
       '<div class="acciones-sesion">' +
       '<button type="button" class="btn-sesion" data-accion="iniciar" data-equipo="' +
@@ -214,7 +257,9 @@
 
     html +=
       '<label class="minutos-libres">' +
-      '<input type="number" min="1" max="480" value="20" class="input-minutos" data-equipo="' +
+      '<input type="number" min="1" max="480" value="' +
+      minutos +
+      '" class="input-minutos" data-equipo="' +
       nombre +
       '">' +
       '<button type="button" class="btn-sesion" data-accion="iniciar-libre" data-equipo="' +
@@ -225,107 +270,8 @@
     return html;
   }
 
-  function sincronizarSeleccionarTodos() {
-    var habilitados = document.querySelectorAll(".sel-equipo:not(:disabled)");
-    var marcados = document.querySelectorAll(".sel-equipo:not(:disabled):checked");
-    seleccionarTodos.checked = habilitados.length > 0 && habilitados.length === marcados.length;
-    actualizarContadorSeleccion();
-  }
-
-  function resaltarFilasSeleccionadas() {
-    document.querySelectorAll("#cuerpo-equipos tr").forEach(function (fila) {
-      var cb = fila.querySelector(".sel-equipo");
-      if (cb) {
-        fila.classList.toggle("fila-seleccionada", cb.checked);
-      }
-    });
-  }
-
-  function renderizarEquipos(equipos) {
-    var seleccionPrevios = new Set(obtenerSeleccionados());
-    equiposActuales = equipos;
-    actualizarEstadisticas(equipos);
-
-    if (!equipos.length) {
-      cuerpoEquipos.innerHTML =
-        '<tr><td colspan="9" class="vacio">' +
-        '<span class="vacio-icono" aria-hidden="true">🖥</span>' +
-        "No hay equipos registrados todavía.</td></tr>";
-      actualizarContadorSeleccion();
-      return;
-    }
-
-    var filas = equipos.map(function (eq) {
-      var icono = iconosSO[eq.so] || "💻";
-      var usuarios = (eq.usuarios || []).join(", ") || "—";
-      var sinAgente = !!eq.sin_agente;
-      var claseFila = sinAgente ? "sin-agente" : (eq.conectado ? "" : "desconectado");
-      var estado;
-      if (sinAgente) {
-        estado = '<span class="estado-badge sin-agente">Sin agente</span>';
-      } else if (eq.bloqueado) {
-        estado = '<span class="estado-badge bloqueado">Bloqueado</span>';
-      } else if (eq.conectado) {
-        estado = '<span class="estado-badge conectado">Conectado</span>';
-      } else {
-        estado = '<span class="estado-badge desconectado">Desconectado</span>';
-      }
-
-      var visto;
-      if (eq.ultimo_visto) {
-        visto = '<span class="visto-hora">✓ ' + formatearHora(eq.ultimo_visto) + "</span>";
-      } else if (eq.ultimo_mensaje_id && eq.conectado) {
-        visto = '<span class="visto-pendiente">Esperando…</span>';
-      } else {
-        visto = "—";
-      }
-
-      var seleccionable = eq.conectado || (sinAgente && usarRespaldo.checked);
-      var deshabilitado = seleccionable ? "" : " disabled";
-      var tiempo = formatearTiempo(eq.tiempo_restante);
-
-      return (
-        '<tr class="' + claseFila + '">' +
-        '<td class="col-sel"><input type="checkbox" class="sel-equipo" data-nombre="' +
-        eq.nombre +
-        '"' +
-        deshabilitado +
-        "></td>" +
-        '<td class="col-so"><span class="icono-so" title="' +
-        eq.so +
-        '">' +
-        icono +
-        "</span></td>" +
-        '<td><span class="nombre-equipo">' +
-        eq.nombre +
-        "</span></td>" +
-        "<td>" +
-        usuarios +
-        "</td>" +
-        "<td>" +
-        (eq.ip || "—") +
-        "</td>" +
-        '<td class="col-tiempo ' +
-        claseTiempo(eq.tiempo_restante) +
-        '">' +
-        tiempo +
-        "</td>" +
-        "<td>" +
-        estado +
-        "</td>" +
-        "<td>" +
-        visto +
-        "</td>" +
-        '<td class="col-sesion">' +
-        botonesSesion(eq) +
-        "</td>" +
-        "</tr>"
-      );
-    });
-
-    cuerpoEquipos.innerHTML = filas.join("");
-
-    document.querySelectorAll(".btn-sesion").forEach(function (boton) {
+  function enlazarEventosSesion(contenedor) {
+    (contenedor || document).querySelectorAll(".btn-sesion").forEach(function (boton) {
       boton.addEventListener("click", function () {
         var equipo = boton.getAttribute("data-equipo");
         var accion = boton.getAttribute("data-accion");
@@ -347,6 +293,161 @@
         }
       });
     });
+
+    (contenedor || document).querySelectorAll(".input-minutos").forEach(function (input) {
+      input.addEventListener("input", function () {
+        minutosLibresPorEquipo[input.getAttribute("data-equipo")] = input.value;
+      });
+    });
+  }
+
+  function sincronizarSeleccionarTodos() {
+    var habilitados = document.querySelectorAll(".sel-equipo:not(:disabled)");
+    var marcados = document.querySelectorAll(".sel-equipo:not(:disabled):checked");
+    seleccionarTodos.checked = habilitados.length > 0 && habilitados.length === marcados.length;
+    actualizarContadorSeleccion();
+  }
+
+  function resaltarFilasSeleccionadas() {
+    document.querySelectorAll("#cuerpo-equipos tr").forEach(function (fila) {
+      var cb = fila.querySelector(".sel-equipo");
+      if (cb) {
+        fila.classList.toggle("fila-seleccionada", cb.checked);
+      }
+    });
+  }
+
+  function claseFila(eq) {
+    if (eq.sin_agente) {
+      return "sin-agente";
+    }
+    return eq.conectado ? "" : "desconectado";
+  }
+
+  function actualizarFilasLigeras(equipos) {
+    equiposActuales = equipos;
+    actualizarEstadisticas(equipos);
+
+    equipos.forEach(function (eq) {
+      var fila = cuerpoEquipos.querySelector('tr[data-nombre="' + eq.nombre + '"]');
+      if (!fila) {
+        return;
+      }
+
+      var conectadoAntes = fila.getAttribute("data-conectado") === "1";
+      var bloqueadoAntes = fila.getAttribute("data-bloqueado") === "1";
+      fila.className = claseFila(eq);
+      fila.setAttribute("data-conectado", eq.conectado ? "1" : "0");
+      fila.setAttribute("data-bloqueado", eq.bloqueado ? "1" : "0");
+
+      var usuariosTd = fila.querySelector('[data-campo="usuarios"]');
+      if (usuariosTd) {
+        usuariosTd.textContent = (eq.usuarios || []).join(", ") || "—";
+      }
+
+      var ipTd = fila.querySelector('[data-campo="ip"]');
+      if (ipTd) {
+        ipTd.textContent = eq.ip || "—";
+      }
+
+      var tiempoTd = fila.querySelector('[data-campo="tiempo"]');
+      if (tiempoTd) {
+        tiempoTd.className = "col-tiempo " + claseTiempo(eq.tiempo_restante);
+        tiempoTd.textContent = formatearTiempo(eq.tiempo_restante);
+      }
+
+      var estadoTd = fila.querySelector('[data-campo="estado"]');
+      if (estadoTd) {
+        estadoTd.innerHTML = htmlEstado(eq);
+      }
+
+      var vistoTd = fila.querySelector('[data-campo="visto"]');
+      if (vistoTd) {
+        vistoTd.innerHTML = htmlVisto(eq);
+      }
+
+      var checkbox = fila.querySelector(".sel-equipo");
+      if (checkbox) {
+        var seleccionable = eq.conectado || (eq.sin_agente && usarRespaldo.checked);
+        checkbox.disabled = !seleccionable;
+      }
+
+      if (conectadoAntes !== eq.conectado || bloqueadoAntes !== eq.bloqueado) {
+        var sesionTd = fila.querySelector('[data-campo="sesion"]');
+        if (sesionTd) {
+          sesionTd.innerHTML = htmlBotonesSesion(eq);
+          enlazarEventosSesion(sesionTd);
+        }
+      }
+    });
+
+    sincronizarSeleccionarTodos();
+    resaltarFilasSeleccionadas();
+  }
+
+  function renderizarEquipos(equipos) {
+    var seleccionPrevios = new Set(obtenerSeleccionados());
+    capturarMinutosLibres();
+    equiposActuales = equipos;
+    actualizarEstadisticas(equipos);
+
+    if (!equipos.length) {
+      cuerpoEquipos.innerHTML =
+        '<tr><td colspan="9" class="vacio">' +
+        '<span class="vacio-icono" aria-hidden="true">🖥</span>' +
+        "No hay equipos registrados todavía.</td></tr>";
+      actualizarContadorSeleccion();
+      return;
+    }
+
+    var filas = equipos.map(function (eq) {
+      var icono = iconosSO[eq.so] || "💻";
+      var seleccionable = eq.conectado || (eq.sin_agente && usarRespaldo.checked);
+      var deshabilitado = seleccionable ? "" : " disabled";
+
+      return (
+        '<tr class="' + claseFila(eq) + '" data-nombre="' + eq.nombre + '"' +
+        ' data-conectado="' + (eq.conectado ? "1" : "0") + '"' +
+        ' data-bloqueado="' + (eq.bloqueado ? "1" : "0") + '">' +
+        '<td class="col-sel"><input type="checkbox" class="sel-equipo" data-nombre="' +
+        eq.nombre +
+        '"' +
+        deshabilitado +
+        "></td>" +
+        '<td class="col-so"><span class="icono-so" title="' +
+        eq.so +
+        '">' +
+        icono +
+        "</span></td>" +
+        '<td><span class="nombre-equipo">' +
+        eq.nombre +
+        "</span></td>" +
+        '<td data-campo="usuarios">' +
+        ((eq.usuarios || []).join(", ") || "—") +
+        "</td>" +
+        '<td data-campo="ip">' +
+        (eq.ip || "—") +
+        "</td>" +
+        '<td class="col-tiempo ' +
+        claseTiempo(eq.tiempo_restante) +
+        '" data-campo="tiempo">' +
+        formatearTiempo(eq.tiempo_restante) +
+        "</td>" +
+        '<td data-campo="estado">' +
+        htmlEstado(eq) +
+        "</td>" +
+        '<td data-campo="visto">' +
+        htmlVisto(eq) +
+        "</td>" +
+        '<td class="col-sesion" data-campo="sesion">' +
+        htmlBotonesSesion(eq) +
+        "</td>" +
+        "</tr>"
+      );
+    });
+
+    cuerpoEquipos.innerHTML = filas.join("");
+    enlazarEventosSesion(cuerpoEquipos);
 
     document.querySelectorAll(".sel-equipo").forEach(function (cb) {
       var nombre = cb.getAttribute("data-nombre");
@@ -371,11 +472,17 @@
       });
   }
 
-  function actualizarEquipos() {
+  function hayInputMinutosConFoco() {
+    var activo = document.activeElement;
+    return activo && activo.classList && activo.classList.contains("input-minutos");
+  }
+
+  function actualizarEquipos(opciones) {
     if (actualizando) {
       return Promise.resolve();
     }
     actualizando = true;
+    var forzarRender = opciones && opciones.forzarRender;
 
     return fetch("/api/equipos")
       .then(function (resp) {
@@ -385,15 +492,29 @@
         return resp.json();
       })
       .then(function (equipos) {
-        renderizarEquipos(equipos);
-        marcarActualizacion(true);
+        var puedeActualizarLigero =
+          !forzarRender &&
+          !hayInputMinutosConFoco() &&
+          mismosEquipos(equipos, equiposActuales) &&
+          cuerpoEquipos.querySelector("tr[data-nombre]");
+
+        if (puedeActualizarLigero) {
+          actualizarFilasLigeras(equipos);
+        } else {
+          renderizarEquipos(equipos);
+        }
+        indicador.marcar(true);
       })
       .catch(function (err) {
-        cuerpoEquipos.innerHTML =
-          '<tr><td colspan="9" class="vacio">' +
-          '<span class="vacio-icono" aria-hidden="true">⚠</span>' +
-          "Error al cargar equipos: " + err.message + "</td></tr>";
-        marcarActualizacion(false);
+        if (!equiposActuales.length) {
+          cuerpoEquipos.innerHTML =
+            '<tr><td colspan="9" class="vacio">' +
+            '<span class="vacio-icono" aria-hidden="true">⚠</span>' +
+            "Error al cargar equipos: " + err.message + "</td></tr>";
+        } else {
+          mostrarToast("No se pudo actualizar: " + err.message, "error");
+        }
+        indicador.marcar(false);
       })
       .finally(function () {
         actualizando = false;
@@ -521,7 +642,7 @@
 
   btnActualizar.addEventListener("click", function () {
     btnActualizar.disabled = true;
-    actualizarEquipos().finally(function () {
+    actualizarEquipos({ forzarRender: true }).finally(function () {
       btnActualizar.disabled = false;
     });
   });
