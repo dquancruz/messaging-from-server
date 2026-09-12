@@ -426,6 +426,8 @@ def _crear_handler(panel: PanelHTTP) -> type[BaseHTTPRequestHandler]:
         def _servir_moderacion(self, ruta: str) -> None:
             if ruta == "/moderacion/" or ruta == "/moderacion":
                 archivo = RUTA_MODERACION / "index.html"
+            elif ruta == "/moderacion/comun.js":
+                archivo = RUTA_PANEL / "comun.js"
             else:
                 relativa = ruta.removeprefix("/moderacion/").lstrip("/")
                 archivo = (RUTA_MODERACION / relativa).resolve()

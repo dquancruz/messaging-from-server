@@ -5,7 +5,14 @@
   var cuerpoConversaciones = document.getElementById("cuerpo-conversaciones");
   var listaMensajes = document.getElementById("lista-mensajes");
   var etiquetaConversacion = document.getElementById("etiqueta-conversacion");
+  var textoActualizacion = document.getElementById("texto-actualizacion");
+  var indicadorActualizacion = document.getElementById("indicador-actualizacion");
   var conversacionActiva = null;
+
+  var indicador = PanelComun.crearIndicadorActualizacion(
+    textoActualizacion,
+    indicadorActualizacion
+  );
 
   function formatearHora(iso) {
     if (!iso) {
@@ -48,9 +55,9 @@
           " ↔ " +
           c.equipo_b +
           "</td>" +
-          "<td>" +
+          '<td><span class="badge-mensajes">' +
           c.mensajes +
-          "</td>" +
+          "</span></td>" +
           "<td>" +
           formatearHora(c.ultimo_cuando) +
           "</td>" +
@@ -106,10 +113,14 @@
       .then(function (resp) {
         return resp.json();
       })
-      .then(renderizarConversaciones)
+      .then(function (datos) {
+        renderizarConversaciones(datos);
+        indicador.marcar(true);
+      })
       .catch(function () {
         cuerpoConversaciones.innerHTML =
           '<tr><td colspan="3" class="vacio">Error al cargar conversaciones</td></tr>';
+        indicador.marcar(false);
       });
   }
 
