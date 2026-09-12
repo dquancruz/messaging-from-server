@@ -9,6 +9,10 @@
 ### Security
 ### Deprecated
 
+## [0.7.0] - 2026-09-12
+### Added
+- password unlock on block screen ([#21](https://github.com/dquancruz/messaging-from-server/pull/21/dquancruz/messaging-from-server/actions/runs/34671601462))
+
 ## [0.6.0] - 2026-09-12
 ### Added
 - rediseñar interfaz del panel web de caja ([#20](https://github.com/dquancruz/messaging-from-server/pull/20/dquancruz/messaging-from-server/actions/runs/34671409095))
