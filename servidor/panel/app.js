@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  var INTERVALO_ACTUALIZACION_MS = 2000;
+
   var iconosSO = {
     windows: "🪟",
     linux: "🐧",
@@ -12,11 +14,22 @@
   var formMensaje = document.getElementById("form-mensaje");
   var campoTexto = document.getElementById("texto");
   var campoNivel = document.getElementById("nivel");
-  var estadoEnvio = document.getElementById("estado-envio");
   var usarRespaldo = document.getElementById("usar-respaldo");
   var chatHabilitado = document.getElementById("chat-habilitado");
   var btnActualizar = document.getElementById("btn-actualizar-equipos");
+  var btnEnviar = document.getElementById("btn-enviar");
+  var seleccionContador = document.getElementById("seleccion-contador");
+  var badgeSeleccion = document.getElementById("badge-seleccion");
+  var textoActualizacion = document.getElementById("texto-actualizacion");
+  var indicadorActualizacion = document.getElementById("indicador-actualizacion");
+  var contenedorToasts = document.getElementById("contenedor-toasts");
+  var statConectados = document.getElementById("stat-conectados");
+  var statSesiones = document.getElementById("stat-sesiones");
+  var statBloqueados = document.getElementById("stat-bloqueados");
+  var statTotal = document.getElementById("stat-total");
+
   var equiposActuales = [];
+  var actualizando = false;
 
   function formatearHora(iso) {
     if (!iso) {
@@ -56,6 +69,75 @@
     return "tiempo-ok";
   }
 
+  function mostrarToast(mensaje, tipo) {
+    var toast = document.createElement("div");
+    toast.className = "toast " + (tipo || "info");
+    toast.textContent = mensaje;
+    contenedorToasts.appendChild(toast);
+    setTimeout(function () {
+      toast.style.opacity = "0";
+      toast.style.transform = "translateY(8px)";
+      toast.style.transition = "opacity 0.3s, transform 0.3s";
+      setTimeout(function () {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 4000);
+  }
+
+  function actualizarEstadisticas(equipos) {
+    var conectados = 0;
+    var sesiones = 0;
+    var bloqueados = 0;
+
+    equipos.forEach(function (eq) {
+      if (eq.conectado && !eq.sin_agente) {
+        conectados += 1;
+      }
+      if (eq.tiempo_restante !== null && eq.tiempo_restante !== undefined && eq.tiempo_restante > 0) {
+        sesiones += 1;
+      }
+      if (eq.bloqueado) {
+        bloqueados += 1;
+      }
+    });
+
+    statConectados.textContent = conectados;
+    statSesiones.textContent = sesiones;
+    statBloqueados.textContent = bloqueados;
+    statTotal.textContent = equipos.length;
+  }
+
+  function marcarActualizacion(ok) {
+    var ahora = new Date().toLocaleTimeString("es-MX", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+    textoActualizacion.textContent = ok ? "Actualizado " + ahora : "Error de conexión";
+    indicadorActualizacion.classList.toggle("error", !ok);
+  }
+
+  function actualizarContadorSeleccion() {
+    var n = obtenerSeleccionados().length;
+    var texto = n === 0
+      ? "Ningún equipo seleccionado"
+      : n === 1
+        ? "1 equipo seleccionado"
+        : n + " equipos seleccionados";
+
+    seleccionContador.textContent = texto;
+    seleccionContador.classList.toggle("activa", n > 0);
+
+    if (n > 0) {
+      badgeSeleccion.textContent = n + " sel.";
+      badgeSeleccion.hidden = false;
+    } else {
+      badgeSeleccion.hidden = true;
+    }
+  }
+
   function llamarApi(ruta, cuerpo) {
     return fetch(ruta, {
       method: "POST",
@@ -88,23 +170,19 @@
       return Promise.reject(new Error("acción desconocida"));
     }
 
-    estadoEnvio.textContent = "Procesando sesión…";
-    estadoEnvio.className = "estado-envio";
     return llamarApi(ruta, cuerpo)
       .then(function () {
-        estadoEnvio.textContent = "Sesión actualizada para " + equipo;
-        estadoEnvio.className = "estado-envio ok";
-        actualizarEquipos();
+        mostrarToast("Sesión actualizada para " + equipo, "ok");
+        return actualizarEquipos();
       })
       .catch(function (err) {
-        estadoEnvio.textContent = err.message;
-        estadoEnvio.className = "estado-envio error";
+        mostrarToast(err.message, "error");
       });
   }
 
   function botonesSesion(eq) {
     if (!eq.conectado) {
-      return '<span class="sesion-offline">—</span>';
+      return '<span class="sesion-offline">Sin conexión</span>';
     }
 
     var nombre = eq.nombre;
@@ -113,19 +191,19 @@
       '<div class="acciones-sesion">' +
       '<button type="button" class="btn-sesion" data-accion="iniciar" data-equipo="' +
       nombre +
-      '" data-minutos="15">15 min</button>' +
+      '" data-minutos="15">15′</button>' +
       '<button type="button" class="btn-sesion" data-accion="iniciar" data-equipo="' +
       nombre +
-      '" data-minutos="30">30 min</button>' +
+      '" data-minutos="30">30′</button>' +
       '<button type="button" class="btn-sesion" data-accion="iniciar" data-equipo="' +
       nombre +
-      '" data-minutos="60">60 min</button>' +
+      '" data-minutos="60">60′</button>' +
       '<button type="button" class="btn-sesion" data-accion="extender" data-equipo="' +
       nombre +
-      '" data-minutos="15">+15 min</button>' +
+      '" data-minutos="15">+15′</button>' +
       '<button type="button" class="btn-sesion btn-terminar" data-accion="terminar" data-equipo="' +
       nombre +
-      '">Terminar</button>';
+      '">Fin</button>';
 
     if (bloqueado) {
       html +=
@@ -141,7 +219,7 @@
       '">' +
       '<button type="button" class="btn-sesion" data-accion="iniciar-libre" data-equipo="' +
       nombre +
-      '">Iniciar</button>' +
+      '">▶</button>' +
       "</label></div>";
 
     return html;
@@ -151,14 +229,29 @@
     var habilitados = document.querySelectorAll(".sel-equipo:not(:disabled)");
     var marcados = document.querySelectorAll(".sel-equipo:not(:disabled):checked");
     seleccionarTodos.checked = habilitados.length > 0 && habilitados.length === marcados.length;
+    actualizarContadorSeleccion();
+  }
+
+  function resaltarFilasSeleccionadas() {
+    document.querySelectorAll("#cuerpo-equipos tr").forEach(function (fila) {
+      var cb = fila.querySelector(".sel-equipo");
+      if (cb) {
+        fila.classList.toggle("fila-seleccionada", cb.checked);
+      }
+    });
   }
 
   function renderizarEquipos(equipos) {
     var seleccionPrevios = new Set(obtenerSeleccionados());
     equiposActuales = equipos;
+    actualizarEstadisticas(equipos);
+
     if (!equipos.length) {
       cuerpoEquipos.innerHTML =
-        '<tr><td colspan="9" class="vacio">No hay equipos registrados todavía.</td></tr>';
+        '<tr><td colspan="9" class="vacio">' +
+        '<span class="vacio-icono" aria-hidden="true">🖥</span>' +
+        "No hay equipos registrados todavía.</td></tr>";
+      actualizarContadorSeleccion();
       return;
     }
 
@@ -180,7 +273,7 @@
 
       var visto;
       if (eq.ultimo_visto) {
-        visto = '<span class="visto-hora">' + formatearHora(eq.ultimo_visto) + "</span>";
+        visto = '<span class="visto-hora">✓ ' + formatearHora(eq.ultimo_visto) + "</span>";
       } else if (eq.ultimo_mensaje_id && eq.conectado) {
         visto = '<span class="visto-pendiente">Esperando…</span>';
       } else {
@@ -203,9 +296,9 @@
         '">' +
         icono +
         "</span></td>" +
-        "<td><strong>" +
+        '<td><span class="nombre-equipo">' +
         eq.nombre +
-        "</strong></td>" +
+        "</span></td>" +
         "<td>" +
         usuarios +
         "</td>" +
@@ -241,8 +334,7 @@
           var input = document.querySelector('.input-minutos[data-equipo="' + equipo + '"]');
           minutos = parseInt(input.value, 10);
           if (!minutos || minutos <= 0) {
-            estadoEnvio.textContent = "Indica minutos válidos.";
-            estadoEnvio.className = "estado-envio error";
+            mostrarToast("Indica minutos válidos.", "error");
             return;
           }
           accionSesion(equipo, "iniciar", minutos);
@@ -261,9 +353,14 @@
       if (!cb.disabled && (seleccionPrevios.has(nombre) || seleccionarTodos.checked)) {
         cb.checked = true;
       }
+      cb.addEventListener("change", function () {
+        sincronizarSeleccionarTodos();
+        resaltarFilasSeleccionadas();
+      });
     });
 
     sincronizarSeleccionarTodos();
+    resaltarFilasSeleccionadas();
   }
 
   function obtenerSeleccionados() {
@@ -275,6 +372,11 @@
   }
 
   function actualizarEquipos() {
+    if (actualizando) {
+      return Promise.resolve();
+    }
+    actualizando = true;
+
     return fetch("/api/equipos")
       .then(function (resp) {
         if (!resp.ok) {
@@ -282,18 +384,24 @@
         }
         return resp.json();
       })
-      .then(renderizarEquipos)
+      .then(function (equipos) {
+        renderizarEquipos(equipos);
+        marcarActualizacion(true);
+      })
       .catch(function (err) {
         cuerpoEquipos.innerHTML =
-          '<tr><td colspan="9" class="vacio">Error al cargar equipos: ' +
-          err.message +
-          "</td></tr>";
+          '<tr><td colspan="9" class="vacio">' +
+          '<span class="vacio-icono" aria-hidden="true">⚠</span>' +
+          "Error al cargar equipos: " + err.message + "</td></tr>";
+        marcarActualizacion(false);
+      })
+      .finally(function () {
+        actualizando = false;
       });
   }
 
   function enviarMensaje(destinos, texto, nivel) {
-    estadoEnvio.textContent = "Enviando…";
-    estadoEnvio.className = "estado-envio";
+    btnEnviar.disabled = true;
 
     return fetch("/api/mensaje", {
       method: "POST",
@@ -326,13 +434,14 @@
             textoEstado += ". Respaldo falló: " + falloRespaldo.map(function (r) { return r.equipo; }).join(", ");
           }
         }
-        estadoEnvio.textContent = textoEstado;
-        estadoEnvio.className = "estado-envio ok";
-        actualizarEquipos();
+        mostrarToast(textoEstado, "ok");
+        return actualizarEquipos();
       })
       .catch(function (err) {
-        estadoEnvio.textContent = err.message;
-        estadoEnvio.className = "estado-envio error";
+        mostrarToast(err.message, "error");
+      })
+      .finally(function () {
+        btnEnviar.disabled = false;
       });
   }
 
@@ -340,6 +449,8 @@
     document.querySelectorAll(".sel-equipo:not(:disabled)").forEach(function (cb) {
       cb.checked = seleccionarTodos.checked;
     });
+    sincronizarSeleccionarTodos();
+    resaltarFilasSeleccionadas();
   });
 
   usarRespaldo.addEventListener("change", function () {
@@ -358,10 +469,12 @@
     ev.preventDefault();
     var seleccionados = obtenerSeleccionados();
     if (!seleccionados.length) {
-      estadoEnvio.textContent = usarRespaldo.checked
-        ? "Selecciona al menos un equipo conectado o sin agente."
-        : "Selecciona al menos un equipo conectado.";
-      estadoEnvio.className = "estado-envio error";
+      mostrarToast(
+        usarRespaldo.checked
+          ? "Selecciona al menos un equipo conectado o sin agente."
+          : "Selecciona al menos un equipo conectado.",
+        "error"
+      );
       return;
     }
     enviarMensaje(seleccionados, campoTexto.value.trim(), campoNivel.value);
@@ -395,21 +508,25 @@
       })
       .then(function (datos) {
         chatHabilitado.checked = !!datos.habilitado;
+        mostrarToast(
+          datos.habilitado ? "Chat entre clientes activado" : "Chat entre clientes desactivado",
+          "ok"
+        );
       })
       .catch(function () {
         chatHabilitado.checked = !deseado;
+        mostrarToast("No se pudo cambiar el estado del chat", "error");
       });
   });
 
   btnActualizar.addEventListener("click", function () {
     btnActualizar.disabled = true;
-    btnActualizar.textContent = "Actualizando…";
     actualizarEquipos().finally(function () {
       btnActualizar.disabled = false;
-      btnActualizar.textContent = "Actualizar lista";
     });
   });
 
   actualizarEquipos();
   actualizarEstadoChat();
+  setInterval(actualizarEquipos, INTERVALO_ACTUALIZACION_MS);
 })();
