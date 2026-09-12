@@ -54,11 +54,7 @@ class GestorVentanas:
         self._texto_bloqueo = "Tu tiempo terminó, pasa a caja."
         self._restante_sesion: int | None = None
         self._chat = VentanaChat(root, cola_red, nombre_equipo())
-        self._ventana_acceso_chat = tk.Toplevel(root)
-        self._ventana_acceso_chat.overrideredirect(True)
-        self._ventana_acceso_chat.attributes("-topmost", True)
-        self._boton_chat = crear_acceso_chat(self._ventana_acceso_chat, self._chat.abrir)
-        self._boton_chat.pack()
+        self._ventana_acceso_chat = crear_acceso_chat(root, self._chat.abrir)
         self._posicionar_boton_chat()
         self.root.bind("<Control-Shift-C>", lambda _e: self._chat.abrir())
         self._programar_revision_cola()
