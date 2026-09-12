@@ -123,7 +123,12 @@ class PruebasCodificarDecodificar(unittest.TestCase):
     def test_tipo_no_permitido_por_direccion(self):
         # 'bienvenido' es servidor->agente; un agente no debería poder
         # mandarlo
-        bienvenido = {"tipo": "bienvenido", "sesion": None, "bloqueado": False}
+        bienvenido = {
+            "tipo": "bienvenido",
+            "sesion": None,
+            "bloqueado": False,
+            "desbloqueo_clave": False,
+        }
         # sin restricción de dirección, es válido
         protocolo.decodificar_linea(json.dumps(bienvenido))
         # restringido a lo que puede mandar un agente, se rechaza

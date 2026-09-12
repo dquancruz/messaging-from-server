@@ -49,7 +49,15 @@ class PruebasServidor(unittest.IsolatedAsyncioTestCase):
         await escritor.drain()
 
         bienvenida = await _leer_mensaje(lector)
-        self.assertEqual(bienvenida, {"tipo": "bienvenido", "sesion": None, "bloqueado": False})
+        self.assertEqual(
+            bienvenida,
+            {
+                "tipo": "bienvenido",
+                "sesion": None,
+                "bloqueado": False,
+                "desbloqueo_clave": False,
+            },
+        )
 
         await asyncio.sleep(0.05)  # dejar que el servidor termine de registrar
         self.assertIn("pc-01", self.estado.equipos)
@@ -194,6 +202,92 @@ class PruebasServidor(unittest.IsolatedAsyncioTestCase):
         escritor.close()
         await asyncio.sleep(0.05)  # no hace falta esperar el timeout: fue EOF
         self.assertFalse(self.estado.equipos["pc-06"].conectado)
+
+class PruebasDesbloqueoConClave(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.clave_prueba = "x" * 8
+        self.estado = EstadoServidor()
+        self.servidor = Servidor(
+            estado=self.estado,
+            token="secreto",
+            host="127.0.0.1",
+            puerto=0,
+            password_desbloqueo=self.clave_prueba,
+            habilitar_temporizador=False,
+        )
+        self.servidor_asyncio = await self.servidor.iniciar()
+
+    async def asyncTearDown(self):
+        await self.servidor.detener()
+
+    async def test_desbloqueo_con_clave_correcta(self):
+        lector, escritor = await _conectar(self.servidor_asyncio)
+        try:
+            escritor.write(protocolo.codificar({**HOLA_BASE, "equipo": "PC-10"}))
+            await escritor.drain()
+            bienvenida = await _leer_mensaje(lector)
+            self.assertTrue(bienvenida["desbloqueo_clave"])
+            await asyncio.sleep(0.05)
+
+            self.estado.sesiones._bloqueados["pc-10"] = True
+            escritor.write(
+                protocolo.codificar(
+                    {"tipo": "desbloquear_clave", "clave": self.clave_prueba},
+                    protocolo.TIPOS_AGENTE_SERVIDOR,
+                )
+            )
+            await escritor.drain()
+
+            linea = await asyncio.wait_for(lector.readline(), timeout=2)
+            mensaje = protocolo.decodificar_linea(linea, protocolo.TIPOS_SERVIDOR_AGENTE)
+            self.assertEqual(mensaje["tipo"], "desbloquear")
+            self.assertFalse(self.estado.sesiones.esta_bloqueado("pc-10"))
+        finally:
+            escritor.close()
+
+    async def test_desbloqueo_con_clave_incorrecta(self):
+        lector, escritor = await _conectar(self.servidor_asyncio)
+        try:
+            escritor.write(protocolo.codificar({**HOLA_BASE, "equipo": "PC-11"}))
+            await escritor.drain()
+            await _leer_mensaje(lector)
+            await asyncio.sleep(0.05)
+
+            self.estado.sesiones._bloqueados["pc-11"] = True
+            escritor.write(
+                protocolo.codificar(
+                    {"tipo": "desbloquear_clave", "clave": "otra-clave"},
+                    protocolo.TIPOS_AGENTE_SERVIDOR,
+                )
+            )
+            await escritor.drain()
+
+            linea = await asyncio.wait_for(lector.readline(), timeout=2)
+            mensaje = protocolo.decodificar_linea(linea, protocolo.TIPOS_SERVIDOR_AGENTE)
+            self.assertEqual(mensaje["tipo"], "desbloquear_rechazado")
+            self.assertEqual(mensaje["motivo"], "contraseña incorrecta")
+            self.assertTrue(self.estado.sesiones.esta_bloqueado("pc-11"))
+        finally:
+            escritor.close()
+
+    async def test_bloquear_incluye_desbloqueo_clave_cuando_esta_configurado(self):
+        lector, escritor = await _conectar(self.servidor_asyncio)
+        try:
+            escritor.write(protocolo.codificar({**HOLA_BASE, "equipo": "PC-12"}))
+            await escritor.drain()
+            await _leer_mensaje(lector)
+            await asyncio.sleep(0.05)
+
+            await self.servidor.terminar_sesion("pc-12")
+            await self.servidor._tick_sesiones()
+
+            linea = await asyncio.wait_for(lector.readline(), timeout=2)
+            mensaje = protocolo.decodificar_linea(linea, protocolo.TIPOS_SERVIDOR_AGENTE)
+            self.assertEqual(mensaje["tipo"], "bloquear")
+            self.assertTrue(mensaje["desbloqueo_clave"])
+            self.assertEqual(mensaje["texto"], "Tu tiempo terminó, pasa a caja.")
+        finally:
+            escritor.close()
 
 
 if __name__ == "__main__":
