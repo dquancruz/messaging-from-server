@@ -56,11 +56,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 5. Al final muestra el token, las contraseñas del panel y la ruta de inicio manual.
 
-> **Actualizar a una versión nueva:** volver a ejecutar `instalar-servidor.ps1`
-> **sobrescribe** `C:\CiberMensajeria\config.json` con la copia del repositorio
-> (mismo token compartido del laboratorio). Si editó ese archivo en DC01,
-> guarde una copia antes de actualizar, o copie solo los `.py` sin volver a
-> correr el instalador completo.
+> Para actualizar a una versión nueva del proyecto, véase la
+> [sección 5](#5-actualizar-a-una-versión-nueva).
 
 ### Si falta Python en DC01
 
@@ -200,7 +197,180 @@ sudo ./desinstalar-agente.sh
 
 ---
 
-## 5. Opciones comunes de configuración
+## 5. Actualizar a una versión nueva
+
+Cuando publique una nueva versión del proyecto (número en `VERSION` y entrada en
+`CHANGELOG.md`), siga este proceso en el laboratorio.
+
+### Orden recomendado
+
+1. **Servidor** en DC01.
+2. **Agentes** en cada equipo cliente.
+
+Así el servidor ya entiende el protocolo nuevo antes de que los clientes se
+reconecten. Si solo cambió la interfaz (panel o ventanas), el orden importa
+menos, pero conviene mantener siempre servidor primero.
+
+### Qué conservar y qué se sobrescribe
+
+| Ubicación | Se conserva al actualizar solo código | Se sobrescribe al reinstalar con el script |
+|---|---|---|
+| DC01: `C:\CiberMensajeria\datos\` | Sí (historial, chat, logs) | Sí (el instalador no la borra) |
+| DC01: `C:\CiberMensajeria\config.json` | Sí, si copia solo `.py` | Sí (copia del repositorio) |
+| Cliente Windows: `C:\ProgramData\CiberMensajeria\agente.json` | Sí, si copia solo `.py` | Sí (valores por defecto del instalador) |
+| Cliente Linux: `/etc/ciber-mensajeria/agente.json` | Sí, si copia solo `.py` | Sí |
+| Cliente macOS: `…/CiberMensajeria/agente.json` | Sí, si copia solo `.py` | Sí |
+
+Si personalizó un JSON (otra IP de servidor, token distinto, etc.), **guarde una
+copia** antes de volver a ejecutar el instalador, o use la actualización manual
+de solo código.
+
+### 5.1 Servidor (DC01)
+
+#### Opción A — Reinstalar con el script (la más simple)
+
+Use esta opción si **no** editó `config.json` en DC01 (token y contraseñas del
+repositorio le sirven).
+
+1. Copie la nueva versión del repositorio a DC01 (por ejemplo
+   `C:\Temp\ciber-mensajeria`).
+2. Abra **PowerShell como Administrador**.
+3. Ejecute:
+
+```powershell
+cd C:\Temp\ciber-mensajeria\instaladores\windows
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\instalar-servidor.ps1
+```
+
+El script actualiza el código, copia de nuevo `config.json` del repositorio,
+actualiza `iniciar-servidor.ps1` y **reinicia la tarea programada** del
+servidor. La carpeta `C:\CiberMensajeria\datos\` **no se borra**.
+
+#### Opción B — Solo código (conservar `config.json` editado)
+
+1. Copie la nueva versión del repositorio a DC01.
+2. En PowerShell (como Administrador), sustituya solo los archivos de programa:
+
+```powershell
+$origen = "C:\Temp\ciber-mensajeria"
+$destino = "C:\CiberMensajeria"
+
+Copy-Item "$origen\comun\*.py" "$destino\comun\" -Force
+Copy-Item "$origen\servidor\*.py" "$destino\servidor\" -Force
+Copy-Item "$origen\servidor\panel\*" "$destino\servidor\panel\" -Recurse -Force
+Copy-Item "$origen\instaladores\windows\iniciar-servidor.ps1" "$destino\" -Force
+```
+
+3. Reinicie el servidor:
+
+```powershell
+Stop-ScheduledTask -TaskName "CiberMensajeriaServidor"
+Start-ScheduledTask -TaskName "CiberMensajeriaServidor"
+```
+
+Para probar antes en consola visible: `C:\CiberMensajeria\iniciar-servidor.ps1`
+(detenga antes la tarea programada para no tener dos instancias).
+
+#### Comprobar el servidor
+
+- Panel: http://localhost:8080 (debe cargar sin «Error al cargar equipos»).
+- Log: `C:\CiberMensajeria\datos\servidor.log` sin errores recientes.
+- Los agentes ya conectados se reconectarán solos tras unos segundos.
+
+### 5.2 Agente en Windows 10/11
+
+#### Opción A — Reinstalar con el script
+
+1. Copie la nueva versión del repositorio al equipo.
+2. PowerShell como Administrador:
+
+```powershell
+cd C:\ruta\al\proyecto\instaladores\windows
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\instalar-agente.ps1
+```
+
+Regenera `agente.json` con los valores por defecto (token del repositorio).
+Reinicia el agente en la sesión actual.
+
+#### Opción B — Solo código
+
+```powershell
+$origen = "C:\ruta\al\proyecto"
+$destino = "C:\Program Files\CiberMensajeria"
+
+Copy-Item "$origen\agente\*.py" "$destino\agente\" -Force
+Copy-Item "$origen\comun\*.py" "$destino\comun\" -Force
+```
+
+Cierre el agente (Administrador de tareas → `pythonw.exe` del módulo `agente`) o
+cierre sesión y vuelva a entrar; el acceso directo de Inicio lo arrancará de
+nuevo.
+
+### 5.3 Agente en Ubuntu / Debian
+
+#### Opción A — Reinstalar con el script
+
+```bash
+cd /ruta/al/proyecto/instaladores/linux
+sudo ./instalar-agente.sh
+```
+
+Si el equipo es sin escritorio, añada `--modo consola` como en la instalación
+inicial. Sobrescribe `agente.json` y los scripts en `/opt/ciber-mensajeria/`.
+
+#### Opción B — Solo código
+
+```bash
+sudo install -m 644 /ruta/al/proyecto/agente/*.py /opt/ciber-mensajeria/agente/
+sudo install -m 644 /ruta/al/proyecto/comun/*.py /opt/ciber-mensajeria/comun/
+```
+
+Reinicio según el modo instalado:
+
+- **Escritorio (autostart):** cierre sesión y vuelva a entrar, o ejecute
+  `/opt/ciber-mensajeria/ejecutar-agente.sh` como el usuario de la sesión.
+- **Consola (systemd):** `sudo systemctl restart ciber-agente`
+
+### 5.4 Agente en macOS
+
+#### Opción A — Reinstalar con el script
+
+```bash
+cd /ruta/al/proyecto/instaladores/macos
+sudo ./instalar-agente.sh
+```
+
+#### Opción B — Solo código
+
+```bash
+sudo install -m 644 /ruta/al/proyecto/agente/*.py "/Library/Application Support/CiberMensajeria/agente/"
+sudo install -m 644 /ruta/al/proyecto/comun/*.py "/Library/Application Support/CiberMensajeria/comun/"
+```
+
+Reinicie el LaunchAgent (sustituya `USUARIO` por el que usa el Mac):
+
+```bash
+UID_GUI=$(id -u USUARIO)
+sudo launchctl bootout "gui/$UID_GUI" /Library/LaunchAgents/lab.ciber.agente.plist
+sudo launchctl bootstrap "gui/$UID_GUI" /Library/LaunchAgents/lab.ciber.agente.plist
+```
+
+### 5.5 Publicar una versión nueva (mantenedores)
+
+Antes de desplegar en el laboratorio:
+
+1. Actualice `VERSION` y `CHANGELOG.md`.
+2. Si cambió el agente, actualice `VERSION_AGENTE` en `agente/__init__.py` (se
+   envía al servidor en cada conexión y queda registrada en el estado interno).
+3. Ejecute las pruebas: `python -m unittest discover -s tests -v`.
+4. Copie el repositorio (o un tag de GitHub) a DC01 y a los clientes, y siga
+   las secciones 5.1–5.4.
+
+---
+
+## 6. Opciones comunes de configuración
 
 Los instaladores crean un JSON con valores por defecto del laboratorio:
 
@@ -220,7 +390,7 @@ reinstalar).
 
 ---
 
-## 6. Chat entre clientes (Fase 8)
+## 7. Chat entre clientes (Fase 8)
 
 Los usuarios pueden mandarse mensajes de texto 1:1 entre equipos con el
 agente gráfico (botón **Chat** en la esquina inferior izquierda, o atajo
@@ -252,7 +422,7 @@ gráfica (tkinter) puede chatear.
 
 ---
 
-## 7. Solución de problemas rápida
+## 8. Solución de problemas rápida
 
 | Problema | Qué revisar |
 |---|---|
@@ -265,7 +435,7 @@ gráfica (tkinter) puede chatear.
 
 ---
 
-## 8. Desarrollo local (sin instaladores)
+## 9. Desarrollo local (sin instaladores)
 
 Para probar en su máquina sin instalar:
 
