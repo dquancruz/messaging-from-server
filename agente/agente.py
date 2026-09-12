@@ -60,13 +60,32 @@ def manejar_mensaje_servidor(mensaje: dict, cola_ui: queue.Queue) -> None:
             mensaje.get("sesion"),
             mensaje.get("bloqueado"),
         )
-        cola_ui.put({"tipo": "sesion", "restante": mensaje.get("sesion")})
+        cola_ui.put(
+            {
+                "tipo": "sesion",
+                "restante": mensaje.get("sesion"),
+                "desbloqueo_clave": mensaje.get("desbloqueo_clave", False),
+            }
+        )
     elif tipo == "sesion":
         cola_ui.put({"tipo": "sesion", "restante": mensaje.get("restante")})
     elif tipo == "bloquear":
-        cola_ui.put({"tipo": "bloquear", "texto": mensaje.get("texto")})
+        cola_ui.put(
+            {
+                "tipo": "bloquear",
+                "texto": mensaje.get("texto"),
+                "desbloqueo_clave": mensaje.get("desbloqueo_clave", False),
+            }
+        )
     elif tipo == "desbloquear":
         cola_ui.put({"tipo": "desbloquear"})
+    elif tipo == "desbloquear_rechazado":
+        cola_ui.put(
+            {
+                "tipo": "desbloquear_rechazado",
+                "motivo": mensaje.get("motivo", "No se pudo desbloquear."),
+            }
+        )
     elif tipo == "rechazado":
         registrador.error("rechazado por el servidor: %s", mensaje.get("motivo"))
     elif tipo == "pong":
@@ -228,6 +247,13 @@ class ClienteRed(threading.Thread):
                     mensaje["ultimos"] = evento["ultimos"]
                 sock.sendall(
                     protocolo.codificar(mensaje, protocolo.TIPOS_AGENTE_SERVIDOR)
+                )
+            elif tipo == "desbloquear_clave":
+                sock.sendall(
+                    protocolo.codificar(
+                        {"tipo": "desbloquear_clave", "clave": evento["clave"]},
+                        protocolo.TIPOS_AGENTE_SERVIDOR,
+                    )
                 )
 
     def _leer_siguiente_mensaje(

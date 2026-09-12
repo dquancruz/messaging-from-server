@@ -45,10 +45,12 @@ class Servidor:
         habilitar_temporizador: bool = True,
         ssl_context: ssl.SSLContext | None = None,
         gestor_chat: GestorChat | None = None,
+        password_desbloqueo: str | None = None,
     ) -> None:
         self.estado = estado
         self.gestor_chat = gestor_chat
         self.token = token
+        self.password_desbloqueo = password_desbloqueo
         self.host = host
         self.puerto = puerto
         # Configurables para que las pruebas no tengan que esperar minutos
@@ -98,6 +100,16 @@ class Servidor:
             except Exception:  # noqa: BLE001 - el bucle no debe caerse
                 registrador.exception("error en el temporizador de sesiones")
 
+    def _desbloqueo_clave_habilitado(self) -> bool:
+        return bool(self.password_desbloqueo)
+
+    def _mensaje_bloquear(self, texto: str) -> dict[str, Any]:
+        return {
+            "tipo": "bloquear",
+            "texto": texto,
+            "desbloqueo_clave": self._desbloqueo_clave_habilitado(),
+        }
+
     async def _tick_sesiones(self) -> None:
         for accion in self.estado.revisar_sesiones():
             mensaje = dict(accion.mensaje)
@@ -105,6 +117,11 @@ class Servidor:
                 mensaje["id"] = str(uuid.uuid4())
                 await self._enviar_a_equipo(accion.equipo, mensaje)
                 self.estado.registrar_mensaje_enviado(accion.equipo, mensaje["id"])
+            elif mensaje["tipo"] == "bloquear":
+                await self._enviar_a_equipo(
+                    accion.equipo,
+                    self._mensaje_bloquear(mensaje["texto"]),
+                )
             else:
                 await self._enviar_a_equipo(accion.equipo, mensaje)
 
@@ -311,6 +328,43 @@ class Servidor:
         await self._enviar_a_equipo(nombre, {"tipo": "desbloquear"})
         return {"equipo": nombre, "bloqueado": False}
 
+    async def _manejar_desbloquear_clave(
+        self,
+        escritor: asyncio.StreamWriter,
+        nombre_equipo: str,
+        mensaje: dict,
+    ) -> None:
+        if not self._desbloqueo_clave_habilitado():
+            await self._enviar(
+                escritor,
+                {
+                    "tipo": "desbloquear_rechazado",
+                    "motivo": "el desbloqueo con contraseña no está habilitado",
+                },
+            )
+            return
+
+        if not self.estado.sesiones.esta_bloqueado(nombre_equipo):
+            await self._enviar(
+                escritor,
+                {
+                    "tipo": "desbloquear_rechazado",
+                    "motivo": "el equipo no está bloqueado",
+                },
+            )
+            return
+
+        if mensaje["clave"] != self.password_desbloqueo:
+            self.estado.registrar_evento("desbloqueo_clave_rechazado", equipo=nombre_equipo)
+            await self._enviar(
+                escritor,
+                {"tipo": "desbloquear_rechazado", "motivo": "contraseña incorrecta"},
+            )
+            return
+
+        self.estado.registrar_evento("desbloqueado_con_clave", equipo=nombre_equipo)
+        await self.desbloquear_equipo(nombre_equipo)
+
     async def _sincronizar_sesion(self, equipo: str) -> None:
         restante = self.estado.sesiones.tiempo_restante(equipo)
         await self._enviar_a_equipo(equipo, {"tipo": "sesion", "restante": restante})
@@ -512,6 +566,9 @@ class Servidor:
             elif tipo == "chat_historial":
                 self.estado.registrar_latido(nombre_equipo, id_conexion)
                 await self._manejar_chat_historial(escritor, nombre_equipo, mensaje)
+            elif tipo == "desbloquear_clave":
+                self.estado.registrar_latido(nombre_equipo, id_conexion)
+                await self._manejar_desbloquear_clave(escritor, nombre_equipo, mensaje)
             else:
                 registrador.warning(
                     "'%s' mandó un tipo inesperado para un agente: '%s'", nombre_equipo, tipo
@@ -549,7 +606,12 @@ class Servidor:
             bloqueado = self.estado.sesiones.esta_bloqueado(nombre_equipo)
             enviado = await self._enviar(
                 escritor,
-                {"tipo": "bienvenido", "sesion": restante, "bloqueado": bloqueado},
+                {
+                    "tipo": "bienvenido",
+                    "sesion": restante,
+                    "bloqueado": bloqueado,
+                    "desbloqueo_clave": self._desbloqueo_clave_habilitado(),
+                },
             )
             if not enviado:
                 return
@@ -557,10 +619,9 @@ class Servidor:
             if bloqueado:
                 await self._enviar(
                     escritor,
-                    {
-                        "tipo": "bloquear",
-                        "texto": self.estado.sesiones.texto_bloqueo(nombre_equipo),
-                    },
+                    self._mensaje_bloquear(
+                        self.estado.sesiones.texto_bloqueo(nombre_equipo)
+                    ),
                 )
 
             await self._sincronizar_chat_agente(escritor, nombre_equipo)

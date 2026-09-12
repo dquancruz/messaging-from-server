@@ -52,10 +52,13 @@ class GestorVentanas:
         self._etiqueta_contador: tk.Label | None = None
         self._bloqueo: tk.Toplevel | None = None
         self._texto_bloqueo = "Tu tiempo terminó, pasa a caja."
+        self._desbloqueo_clave_habilitado = False
+        self._entrada_clave: tk.Entry | None = None
+        self._etiqueta_error_clave: tk.Label | None = None
         self._restante_sesion: int | None = None
         self._chat = VentanaChat(root, cola_red, nombre_equipo())
-        self._acceso_chat = crear_acceso_chat(root, self._chat.abrir)
-        self._posicionar_acceso_chat()
+        self._ventana_acceso_chat = crear_acceso_chat(root, self._chat.abrir)
+        self._posicionar_boton_chat()
         self.root.bind("<Control-Shift-C>", lambda _e: self._chat.abrir())
         self._programar_revision_cola()
 
@@ -76,14 +79,20 @@ class GestorVentanas:
         if tipo == "mostrar_mensaje":
             self._mostrar_emergente(evento["mensaje"])
         elif tipo == "sesion":
+            if "desbloqueo_clave" in evento:
+                self._desbloqueo_clave_habilitado = bool(evento.get("desbloqueo_clave"))
             self._actualizar_contador(evento.get("restante"))
         elif tipo == "bloquear":
             texto = evento.get("texto")
             if texto:
                 self._texto_bloqueo = texto
+            if "desbloqueo_clave" in evento:
+                self._desbloqueo_clave_habilitado = bool(evento.get("desbloqueo_clave"))
             self._mostrar_bloqueo()
         elif tipo == "desbloquear":
             self._ocultar_bloqueo()
+        elif tipo == "desbloquear_rechazado":
+            self._mostrar_error_clave(str(evento.get("motivo", "Contraseña incorrecta.")))
         elif tipo == "chat_estado":
             self._chat.establecer_habilitado(bool(evento.get("habilitado")))
         elif tipo == "chat_lista":
@@ -146,12 +155,12 @@ class GestorVentanas:
         self._etiqueta_contador = etiqueta
         self._posicionar_contador()
 
-    def _posicionar_acceso_chat(self) -> None:
-        ventana = self._acceso_chat
+    def _posicionar_boton_chat(self) -> None:
+        ventana = self._ventana_acceso_chat
         ventana.update_idletasks()
         alto = ventana.winfo_height()
         if alto <= 1:
-            self.root.after(100, self._posicionar_acceso_chat)
+            self.root.after(100, self._posicionar_boton_chat)
             return
         margen = 16
         x = margen
@@ -184,6 +193,7 @@ class GestorVentanas:
 
         if self._bloqueo is not None:
             self._actualizar_texto_bloqueo()
+            self._actualizar_formulario_clave()
             self._bloqueo.lift()
             return
 
@@ -199,6 +209,7 @@ class GestorVentanas:
         fuente_titulo = tkfont.Font(family="Segoe UI", size=36, weight="bold")
         fuente_texto = tkfont.Font(family="Segoe UI", size=22)
         fuente_equipo = tkfont.Font(family="Segoe UI", size=16)
+        fuente_formulario = tkfont.Font(family="Segoe UI", size=14)
 
         marco = tk.Frame(ventana, bg="#111827")
         marco.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
@@ -222,17 +233,85 @@ class GestorVentanas:
         )
         self._etiqueta_bloqueo.pack(pady=(0, 16))
 
+        self._marco_clave = tk.Frame(marco, bg="#111827")
+        self._etiqueta_error_clave = tk.Label(
+            self._marco_clave,
+            text="",
+            font=fuente_formulario,
+            bg="#111827",
+            fg="#FCA5A5",
+            wraplength=420,
+            justify=tk.CENTER,
+        )
+        tk.Label(
+            self._marco_clave,
+            text="Contraseña de desbloqueo",
+            font=fuente_formulario,
+            bg="#111827",
+            fg="#D1D5DB",
+        ).pack(pady=(0, 8))
+        self._entrada_clave = tk.Entry(
+            self._marco_clave,
+            font=fuente_formulario,
+            show="•",
+            width=28,
+            justify=tk.CENTER,
+        )
+        self._entrada_clave.pack(pady=(0, 12))
+        self._entrada_clave.bind("<Return>", lambda _e: self._intentar_desbloquear_con_clave())
+        tk.Button(
+            self._marco_clave,
+            text="Desbloquear",
+            font=fuente_formulario,
+            command=self._intentar_desbloquear_con_clave,
+            padx=18,
+            pady=8,
+        ).pack()
+        self._etiqueta_error_clave.pack(pady=(12, 0))
+
         tk.Label(
             marco,
             text=nombre_equipo(),
             font=fuente_equipo,
             bg="#111827",
             fg="#9CA3AF",
-        ).pack()
+        ).pack(pady=(24, 0))
 
         ventana.protocol("WM_DELETE_WINDOW", lambda: None)
         self._bloqueo = ventana
+        self._actualizar_formulario_clave()
         self._mantener_bloqueo_arriba()
+
+    def _actualizar_formulario_clave(self) -> None:
+        if self._bloqueo is None:
+            return
+        if self._desbloqueo_clave_habilitado:
+            if not self._marco_clave.winfo_ismapped():
+                self._marco_clave.pack(pady=(0, 8))
+            if self._entrada_clave is not None:
+                self._entrada_clave.focus_set()
+        else:
+            if self._marco_clave.winfo_ismapped():
+                self._marco_clave.pack_forget()
+            self._mostrar_error_clave("")
+
+    def _mostrar_error_clave(self, mensaje: str) -> None:
+        if self._etiqueta_error_clave is None:
+            return
+        self._etiqueta_error_clave.configure(text=mensaje)
+        if mensaje and self._entrada_clave is not None:
+            self._entrada_clave.focus_set()
+            self._entrada_clave.select_range(0, tk.END)
+
+    def _intentar_desbloquear_con_clave(self) -> None:
+        if not self._desbloqueo_clave_habilitado or self._entrada_clave is None:
+            return
+        clave = self._entrada_clave.get()
+        if not clave.strip():
+            self._mostrar_error_clave("Escribe la contraseña de desbloqueo.")
+            return
+        self._mostrar_error_clave("")
+        self.cola_red.put({"tipo": "desbloquear_clave", "clave": clave})
 
     def _actualizar_texto_bloqueo(self) -> None:
         if self._bloqueo is None:
@@ -255,6 +334,8 @@ class GestorVentanas:
         if self._bloqueo is not None:
             self._bloqueo.destroy()
             self._bloqueo = None
+            self._entrada_clave = None
+            self._etiqueta_error_clave = None
 
     def _mostrar_emergente(self, mensaje: dict) -> None:
         nivel = mensaje.get("nivel", "info")

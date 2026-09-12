@@ -58,16 +58,18 @@ _CAMPOS_AGENTE_SERVIDOR: dict[str, frozenset[str]] = {
     "ping": frozenset(),
     "chat_enviar": frozenset({"destino", "texto"}),
     "chat_historial": frozenset({"con"}),
+    "desbloquear_clave": frozenset({"clave"}),
 }
 
 # Servidor -> agente
 _CAMPOS_SERVIDOR_AGENTE: dict[str, frozenset[str]] = {
-    "bienvenido": frozenset({"sesion", "bloqueado"}),
+    "bienvenido": frozenset({"sesion", "bloqueado", "desbloqueo_clave"}),
     "rechazado": frozenset({"motivo"}),
     "mensaje": frozenset({"id", "titulo", "texto", "nivel", "pedir_visto"}),
     "sesion": frozenset({"restante"}),
-    "bloquear": frozenset({"texto"}),
+    "bloquear": frozenset({"texto", "desbloqueo_clave"}),
     "desbloquear": frozenset(),
+    "desbloquear_rechazado": frozenset({"motivo"}),
     "pong": frozenset(),
     "chat_estado": frozenset({"habilitado"}),
     "chat_recibido": frozenset({"id", "de", "de_usuario", "texto", "cuando"}),
@@ -167,7 +169,11 @@ _VALIDADORES_CAMPOS: dict[str, dict[str, Callable[[Any], bool]]] = {
     },
     "visto": {"id": _es_str_no_vacio},
     "ping": {},
-    "bienvenido": {"sesion": _es_segundos_o_none, "bloqueado": _es_bool},
+    "bienvenido": {
+        "sesion": _es_segundos_o_none,
+        "bloqueado": _es_bool,
+        "desbloqueo_clave": _es_bool,
+    },
     "rechazado": {"motivo": _es_str},
     "mensaje": {
         "id": _es_str_no_vacio,
@@ -177,8 +183,10 @@ _VALIDADORES_CAMPOS: dict[str, dict[str, Callable[[Any], bool]]] = {
         "pedir_visto": _es_bool,
     },
     "sesion": {"restante": _es_segundos_o_none},
-    "bloquear": {"texto": _es_str},
+    "bloquear": {"texto": _es_str, "desbloqueo_clave": _es_bool},
     "desbloquear": {},
+    "desbloquear_rechazado": {"motivo": _es_str},
+    "desbloquear_clave": {"clave": _es_str},
     "pong": {},
     "chat_enviar": {"destino": _es_str_no_vacio, "texto": _es_texto_chat},
     "chat_historial": {"con": _es_str_no_vacio},
