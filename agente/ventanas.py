@@ -54,12 +54,8 @@ class GestorVentanas:
         self._texto_bloqueo = "Tu tiempo terminó, pasa a caja."
         self._restante_sesion: int | None = None
         self._chat = VentanaChat(root, cola_red, nombre_equipo())
-        self._ventana_acceso_chat = tk.Toplevel(root)
-        self._ventana_acceso_chat.overrideredirect(True)
-        self._ventana_acceso_chat.attributes("-topmost", True)
-        self._boton_chat = crear_acceso_chat(self._ventana_acceso_chat, self._chat.abrir)
-        self._boton_chat.pack()
-        self._posicionar_boton_chat()
+        self._acceso_chat = crear_acceso_chat(root, self._chat.abrir)
+        self._posicionar_acceso_chat()
         self.root.bind("<Control-Shift-C>", lambda _e: self._chat.abrir())
         self._programar_revision_cola()
 
@@ -150,14 +146,19 @@ class GestorVentanas:
         self._etiqueta_contador = etiqueta
         self._posicionar_contador()
 
-    def _posicionar_boton_chat(self) -> None:
-        ventana = self._ventana_acceso_chat
+    def _posicionar_acceso_chat(self) -> None:
+        ventana = self._acceso_chat
         ventana.update_idletasks()
-        margen = 16
         alto = ventana.winfo_height()
+        if alto <= 1:
+            self.root.after(100, self._posicionar_acceso_chat)
+            return
+        margen = 16
         x = margen
         y = ventana.winfo_screenheight() - alto - margen - 48
         ventana.geometry(f"+{x}+{y}")
+        ventana.deiconify()
+        ventana.lift()
 
     def _posicionar_contador(self) -> None:
         if self._contador is None:

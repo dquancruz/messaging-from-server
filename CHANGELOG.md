@@ -6,6 +6,7 @@
 ### Changed
 ### Fixed
 - lectura de `config.json` / `agente.json` con BOM UTF-8 (instaladores Windows en PowerShell 5.1)
+- botón flotante «Chat» del agente: se anulaba un Toplevel dentro de otro (regresión de 0.5.1)
 ### Security
 ### Deprecated
 
