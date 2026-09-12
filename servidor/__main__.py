@@ -89,6 +89,7 @@ async def ejecutar(config: dict, directorio_datos: Path) -> None:
         puerto=config.get("puerto_agentes", protocolo.PUERTO_AGENTES_POR_DEFECTO),
         ssl_context=ssl_context,
         gestor_chat=gestor_chat,
+        password_desbloqueo=config.get("password_desbloqueo"),
     )
     servidor_asyncio = await servidor.iniciar()
 

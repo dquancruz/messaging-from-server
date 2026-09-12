@@ -120,7 +120,14 @@ class PruebasClienteRed(unittest.TestCase):
         while b"\n" not in buffer:
             buffer += conn.recv(4096)
         conn.sendall(
-            protocolo.codificar({"tipo": "bienvenido", "sesion": None, "bloqueado": False})
+            protocolo.codificar(
+                {
+                    "tipo": "bienvenido",
+                    "sesion": None,
+                    "bloqueado": False,
+                    "desbloqueo_clave": False,
+                }
+            )
         )
         time.sleep(0.2)
         conn.close()
@@ -130,7 +137,14 @@ class PruebasClienteRed(unittest.TestCase):
         while b"\n" not in buffer:
             buffer += conn.recv(4096)
         conn.sendall(
-            protocolo.codificar({"tipo": "bienvenido", "sesion": None, "bloqueado": False})
+            protocolo.codificar(
+                {
+                    "tipo": "bienvenido",
+                    "sesion": None,
+                    "bloqueado": False,
+                    "desbloqueo_clave": False,
+                }
+            )
         )
         time.sleep(0.3)
         conn.close()

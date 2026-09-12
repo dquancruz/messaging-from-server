@@ -102,8 +102,13 @@ def procesar_eventos(
         elif tipo == "bloquear":
             texto = evento.get("texto") or "Tu tiempo terminó."
             _anunciar(f"BLOQUEO DE SESIÓN\n{texto}")
+            if evento.get("desbloqueo_clave"):
+                clave = input("Contraseña de desbloqueo: ")
+                agente.cola_red.put({"tipo": "desbloquear_clave", "clave": clave})
         elif tipo == "desbloquear":
             _anunciar("Sesión desbloqueada. Puedes continuar usando el equipo.")
+        elif tipo == "desbloquear_rechazado":
+            _anunciar(f"No se pudo desbloquear: {evento.get('motivo', 'contraseña incorrecta')}")
         elif tipo == "sesion":
             restante = evento.get("restante")
             if restante is None:

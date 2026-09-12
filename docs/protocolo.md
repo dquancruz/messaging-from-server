@@ -34,17 +34,19 @@ Implementado en `comun/protocolo.py`.
 | `ping` | — | Latido, cada 15 s. |
 | `chat_enviar` | `destino`, `texto` | Fase 8. Mensaje 1:1 a otro equipo conectado (máx. 2000 caracteres). |
 | `chat_historial` | `con`, `ultimos` (opcional) | Fase 8. Pide el historial con un interlocutor. |
+| `desbloquear_clave` | `clave` | Pide desbloquear el equipo con la contraseña configurada en el servidor (`password_desbloqueo`). |
 
 ## Servidor → agente
 
 | tipo | campos | notas |
 |---|---|---|
-| `bienvenido` | `sesion` (segundos restantes o `null`), `bloqueado` (bool) | Respuesta a un `hola` aceptado. En la Fase 1, siempre `sesion: null, bloqueado: false` (las sesiones llegan en la Fase 4). |
+| `bienvenido` | `sesion` (segundos restantes o `null`), `bloqueado` (bool), `desbloqueo_clave` (bool) | Respuesta a un `hola` aceptado. `desbloqueo_clave` es `true` si el servidor tiene `password_desbloqueo` en su configuración. |
 | `rechazado` | `motivo` | Token incorrecto, o el primer mensaje no fue `hola`. El servidor cierra la conexión después de mandarlo. |
 | `mensaje` | `id`, `titulo`, `texto`, `nivel` (`info`/`aviso`/`critico`), `pedir_visto` (bool) | Se implementa a partir de la Fase 2/3 (panel + ventana emergente). |
 | `sesion` | `restante` (segundos) o `null` | Fase 4. |
-| `bloquear` | `texto` | Fase 4. |
+| `bloquear` | `texto`, `desbloqueo_clave` (bool) | Fase 4. Si `desbloqueo_clave` es `true`, el agente muestra un campo de contraseña en la pantalla de bloqueo. |
 | `desbloquear` | — | Fase 4. |
+| `desbloquear_rechazado` | `motivo` | Respuesta a un `desbloquear_clave` fallido (contraseña incorrecta, equipo no bloqueado, etc.). |
 | `pong` | — | Respuesta a `ping`. |
 | `chat_estado` | `habilitado` (bool) | Fase 8. Al conectar y cuando caja cambia el interruptor. |
 | `chat_recibido` | `id`, `de`, `de_usuario`, `texto`, `cuando` | Fase 8. Mensaje entrante de otro cliente. |
