@@ -9,6 +9,10 @@
 ### Security
 ### Deprecated
 
+## [0.5.4] - 2026-09-12
+### Fixed
+- evitar token incorrecto por config duplicado o BOM ([#18](https://github.com/dquancruz/messaging-from-server/pull/18/dquancruz/messaging-from-server/actions/runs/34662543501))
+
 ## [0.5.3] - 2026-09-12
 ### Fixed
 - aceptar JSON con BOM UTF-8 tras reinstalar servidor ([#17](https://github.com/dquancruz/messaging-from-server/pull/17/dquancruz/messaging-from-server/actions/runs/34660490756), UTF-8)
