@@ -9,6 +9,10 @@
 ### Security
 ### Deprecated
 
+## [0.6.0] - 2026-09-12
+### Added
+- rediseñar interfaz del panel web de caja ([#20](https://github.com/dquancruz/messaging-from-server/pull/20/dquancruz/messaging-from-server/actions/runs/34671409095))
+
 ## [0.5.5] - 2026-09-12
 ### Fixed
 - mostrar botón flotante de chat correctamente ([#19](https://github.com/dquancruz/messaging-from-server/pull/19/dquancruz/messaging-from-server/actions/runs/34670692961))
