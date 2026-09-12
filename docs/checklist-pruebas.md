@@ -144,8 +144,8 @@ en DC01, no el agente.
 
 | Síntoma | Qué revisar |
 |---|---|
-| El agente se conecta y se desconecta al instante | El log del servidor muestra `rechazado` / token incorrecto. El `token` del agente debe coincidir **exactamente** con `C:\CiberMensajeria\config.json`. |
-| Token distinto entre servidor y agente | Deben coincidir con `lab-lan-ciber-mensajeria` (o el valor en `servidor/config.json` y `agente/config.json`). |
+| El agente se conecta y se desconecta al instante | El log del servidor muestra `rechazado` / token incorrecto. El `token` del agente debe coincidir **exactamente** con el del proceso que escucha en el puerto 5050 (normalmente `C:\CiberMensajeria\config.json`). |
+| Token distinto entre servidor y agente | Deben coincidir con `lab-lan-ciber-mensajeria` (o el valor en `servidor/config.json` y `agente/config.json`). Si el instalador muestra el token correcto pero el log sigue rechazando, hay **dos instancias** del servidor o se arrancó desde otra carpeta con otro `config.json`. |
 
 ### El equipo no aparece en el panel
 
