@@ -10,6 +10,10 @@
 ### Security
 ### Deprecated
 
+## [0.7.1] - 2026-09-12
+### Fixed
+- restaurar botón Chat flotante visible ([#22](https://github.com/dquancruz/messaging-from-server/pull/22/dquancruz/messaging-from-server/actions/runs/34672153530))
+
 ## [0.7.0] - 2026-09-12
 ### Added
 - password unlock on block screen ([#21](https://github.com/dquancruz/messaging-from-server/pull/21/dquancruz/messaging-from-server/actions/runs/34671601462))
