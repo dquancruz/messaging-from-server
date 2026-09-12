@@ -170,6 +170,31 @@ en DC01, no el agente.
 | El usuario cerró la ventana pero el panel sigue en «Esperando…» | Conexión perdida antes de enviar `visto`; revisa logs del agente. |
 | La hora no coincide | El panel muestra hora local del navegador en DC01; es normal un desfase de segundos. |
 
+### `config.json` con BOM tras actualizar el servidor
+
+| Síntoma | Qué revisar |
+|---|---|
+| Al arrancar: `Error de configuración: 'config.json' no es JSON válido: Unexpected UTF-8 BOM` | Suele aparecer **después de reinstalar** el servidor con `instalar-servidor.ps1` de una versión antigua: `Set-Content -Encoding UTF8` en PowerShell 5.1 escribe el JSON con marca BOM (`\xEF\xBB\xBF`) y `json.load()` de Python falla. El servidor funcionaba antes porque el `config.json` anterior no tenía BOM. |
+| Mismo error al instalar agentes en Windows | El instalador del agente también genera `agente.json`; aplica la misma corrección. |
+
+**Cómo arreglarlo sin reinstalar:**
+
+1. Abre `C:\CiberMensajeria\config.json` en el Bloc de notas.
+2. **Archivo → Guardar como…**
+3. En **Codificación**, elige **UTF-8** (no «UTF-8 con BOM» ni «Unicode»).
+4. Guarda y vuelve a ejecutar: `py -m servidor --config config.json`
+
+Alternativa en PowerShell (quita el BOM sin cambiar el contenido):
+
+```powershell
+$ruta = "C:\CiberMensajeria\config.json"
+$texto = Get-Content -Path $ruta -Raw
+$utf8 = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($ruta, $texto, $utf8)
+```
+
+**Prevención:** usa el instalador actual del repositorio (escribe UTF-8 sin BOM) o actualiza el código del servidor/agente (lee con `utf-8-sig`, que acepta ambos formatos).
+
 ### Acentos rotos en PowerShell (instaladores)
 
 | Síntoma | Qué revisar |

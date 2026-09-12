@@ -109,7 +109,9 @@ $configObj = [ordered]@{
     token             = $Token
     bloqueo_nativo    = $false
 }
-$configObj | ConvertTo-Json -Depth 5 | Set-Content -Path $config -Encoding UTF8
+$jsonConfig = $configObj | ConvertTo-Json -Depth 5
+$utf8SinBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($config, $jsonConfig, $utf8SinBom)
 
 Write-Paso "Paso 4/5: acceso directo en Inicio común (todos los usuarios)"
 $inicioComun = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"

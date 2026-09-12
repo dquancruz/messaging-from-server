@@ -2,8 +2,10 @@
 
 ## [Unreleased]
 ### Added
+- guía de actualización de servidor y agentes en `docs/guia-instalacion.md`
 ### Changed
 ### Fixed
+- lectura de `config.json` / `agente.json` con BOM UTF-8 (instaladores Windows en PowerShell 5.1)
 ### Security
 ### Deprecated
 

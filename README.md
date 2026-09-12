@@ -19,7 +19,8 @@ Proyecto universitario (cursos de Sistemas Operativos y de Servidores y Redes).
   real del laboratorio (Fase 6).
 - [`docs/guion-demo.md`](docs/guion-demo.md) — guion de 5 minutos para la
   presentación (Fase 6).
-- `docs/guia-instalacion.md` — guía de instaladores (Fase 5).
+- [`docs/guia-instalacion.md`](docs/guia-instalacion.md) — instalación y
+  actualización en el laboratorio (Fase 5).
 
 ## Estructura
 
