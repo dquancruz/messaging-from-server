@@ -305,10 +305,19 @@ class Servidor:
         return {"equipo": nombre, "bloqueado": self.estado.sesiones.esta_bloqueado(nombre)}
 
     async def desbloquear_equipo(self, equipo: str) -> dict[str, Any]:
+        nombre = equipo.strip().lower()
+        eq = self.estado.equipos.get(nombre)
+        if eq is None:
+            raise ValueError(f"equipo desconocido: {equipo}")
+        if not eq.conectado:
+            raise ValueError(f"equipo no conectado: {nombre}")
+        enviados = await self._enviar_a_equipo(nombre, {"tipo": "desbloquear"})
+        if enviados == 0:
+            raise ValueError(
+                f"no se pudo enviar desbloquear a '{nombre}' (conexión caída)"
+            )
         if not self.estado.desbloquear_equipo(equipo):
             raise ValueError(f"equipo desconocido: {equipo}")
-        nombre = equipo.strip().lower()
-        await self._enviar_a_equipo(nombre, {"tipo": "desbloquear"})
         return {"equipo": nombre, "bloqueado": False}
 
     async def _sincronizar_sesion(self, equipo: str) -> None:

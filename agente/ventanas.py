@@ -51,6 +51,7 @@ class GestorVentanas:
         self._contador: tk.Toplevel | None = None
         self._etiqueta_contador: tk.Label | None = None
         self._bloqueo: tk.Toplevel | None = None
+        self._id_mantener_bloqueo: str | None = None
         self._texto_bloqueo = "Tu tiempo terminó, pasa a caja."
         self._restante_sesion: int | None = None
         self._chat = VentanaChat(root, cola_red, nombre_equipo())
@@ -245,13 +246,22 @@ class GestorVentanas:
 
     def _mantener_bloqueo_arriba(self) -> None:
         if self._bloqueo is None:
+            self._id_mantener_bloqueo = None
             return
         self._bloqueo.lift()
         self._bloqueo.attributes("-topmost", True)
-        self._bloqueo.after(INTERVALO_BLOQUEO_MS, self._mantener_bloqueo_arriba)
+        self._id_mantener_bloqueo = self._bloqueo.after(
+            INTERVALO_BLOQUEO_MS, self._mantener_bloqueo_arriba
+        )
+
+    def _cancelar_mantener_bloqueo(self) -> None:
+        if self._bloqueo is not None and self._id_mantener_bloqueo is not None:
+            self._bloqueo.after_cancel(self._id_mantener_bloqueo)
+        self._id_mantener_bloqueo = None
 
     def _ocultar_bloqueo(self) -> None:
         if self._bloqueo is not None:
+            self._cancelar_mantener_bloqueo()
             self._bloqueo.destroy()
             self._bloqueo = None
 

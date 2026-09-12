@@ -61,6 +61,10 @@ def manejar_mensaje_servidor(mensaje: dict, cola_ui: queue.Queue) -> None:
             mensaje.get("bloqueado"),
         )
         cola_ui.put({"tipo": "sesion", "restante": mensaje.get("sesion")})
+        if mensaje.get("bloqueado"):
+            cola_ui.put({"tipo": "bloquear", "texto": None})
+        else:
+            cola_ui.put({"tipo": "desbloquear"})
     elif tipo == "sesion":
         cola_ui.put({"tipo": "sesion", "restante": mensaje.get("restante")})
     elif tipo == "bloquear":

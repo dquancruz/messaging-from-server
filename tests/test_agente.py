@@ -61,6 +61,26 @@ class PruebasManejoMensajes(unittest.TestCase):
         self.assertEqual(evento["tipo"], "mostrar_mensaje")
         self.assertEqual(evento["mensaje"], mensaje)
 
+    def test_bienvenido_no_bloqueado_quita_pantalla_de_bloqueo(self):
+        cola_ui: queue.Queue = queue.Queue()
+        manejar_mensaje_servidor(
+            {"tipo": "bienvenido", "sesion": None, "bloqueado": False},
+            cola_ui,
+        )
+        eventos = [cola_ui.get_nowait(), cola_ui.get_nowait()]
+        self.assertEqual(eventos[0], {"tipo": "sesion", "restante": None})
+        self.assertEqual(eventos[1], {"tipo": "desbloquear"})
+
+    def test_bienvenido_bloqueado_muestra_pantalla_de_bloqueo(self):
+        cola_ui: queue.Queue = queue.Queue()
+        manejar_mensaje_servidor(
+            {"tipo": "bienvenido", "sesion": None, "bloqueado": True},
+            cola_ui,
+        )
+        eventos = [cola_ui.get_nowait(), cola_ui.get_nowait()]
+        self.assertEqual(eventos[0], {"tipo": "sesion", "restante": None})
+        self.assertEqual(eventos[1], {"tipo": "bloquear", "texto": None})
+
 
 class PruebasClienteRed(unittest.TestCase):
     def test_reconecta_tras_caida_del_servidor(self):

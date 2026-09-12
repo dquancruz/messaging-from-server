@@ -151,6 +151,22 @@ class PruebasPanelHTTP(unittest.IsolatedAsyncioTestCase):
         mensaje = protocolo.decodificar_linea(linea, protocolo.TIPOS_SERVIDOR_AGENTE)
         self.assertEqual(mensaje["tipo"], "desbloquear")
 
+    async def test_api_desbloquear(self):
+        self.estado.sesiones._bloqueados["pc-01"] = True
+        status, resultado = await asyncio.to_thread(
+            _peticion,
+            f"{self.base_url}/api/desbloquear",
+            "POST",
+            {"equipo": "pc-01"},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(resultado, {"equipo": "pc-01", "bloqueado": False})
+        self.assertFalse(self.estado.sesiones.esta_bloqueado("pc-01"))
+
+        linea = await asyncio.wait_for(self.lector.readline(), timeout=2)
+        mensaje = protocolo.decodificar_linea(linea, protocolo.TIPOS_SERVIDOR_AGENTE)
+        self.assertEqual(mensaje["tipo"], "desbloquear")
+
     def test_pagina_principal_se_sirve(self):
         req = urllib.request.Request(f"{self.base_url}/")
         with urllib.request.urlopen(req, timeout=5) as resp:

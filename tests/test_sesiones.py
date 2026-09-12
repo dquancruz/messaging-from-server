@@ -201,6 +201,36 @@ class PruebasServidorSesiones(unittest.IsolatedAsyncioTestCase):
         self.assertIn("desbloquear", tipos)
         self.assertIn("sesion", tipos)
 
+    async def test_desbloquear_envia_mensaje_al_agente(self):
+        lector, escritor = await self._conectar()
+        self.addCleanup(escritor.close)
+        escritor.write(protocolo.codificar(HOLA_BASE))
+        await escritor.drain()
+        await lector.readline()
+        await asyncio.sleep(0.05)
+
+        self.estado.sesiones._bloqueados["pc-01"] = True
+        await self.servidor.desbloquear_equipo("pc-01")
+
+        linea = await asyncio.wait_for(lector.readline(), timeout=2)
+        mensaje = protocolo.decodificar_linea(linea, protocolo.TIPOS_SERVIDOR_AGENTE)
+        self.assertEqual(mensaje["tipo"], "desbloquear")
+        self.assertFalse(self.estado.sesiones.esta_bloqueado("pc-01"))
+
+    async def test_desbloquear_falla_si_no_hay_conexion(self):
+        from servidor.estado import Equipo
+
+        self.estado.equipos["pc-01"] = Equipo(
+            nombre="pc-01",
+            so="linux",
+            version_so="22.04",
+            version_agente="0.1.0",
+        )
+        self.estado.sesiones._bloqueados["pc-01"] = True
+        with self.assertRaisesRegex(ValueError, "no conectado"):
+            await self.servidor.desbloquear_equipo("pc-01")
+        self.assertTrue(self.estado.sesiones.esta_bloqueado("pc-01"))
+
 
 if __name__ == "__main__":
     unittest.main()
